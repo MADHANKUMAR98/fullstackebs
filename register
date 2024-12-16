@@ -1,0 +1,342 @@
+Below is the updated **Angular 19 code** where the **OTP functionality** has been completely removed. I have also enhanced the **styling** to make the UI more appealing and modern.
+
+---
+
+### **Updated Folder Structure**
+
+```plaintext
+src/
+│-- app/
+│   │-- models/
+│   │   └── user.model.ts
+│   │-- services/
+│   │   └── user.service.ts
+│   │-- components/
+│   │   └── register/
+│   │       ├── register.component.ts
+│   │       ├── register.component.html
+│   │       ├── register.component.css
+│-- assets/
+│   ├── login-bg.png
+│   └── logo.png
+```
+
+---
+
+### **1. user.model.ts (Model for User)**
+
+```typescript
+export interface User {
+  firstName: string;
+  lastName: string;
+  aadharId: string;
+  phoneNumber: string;
+  email: string;
+  password: string;
+  confirmPassword?: string; // Optional
+}
+```
+
+---
+
+### **2. user.service.ts (Service for API Calls)**
+
+```typescript
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { User } from '../models/user.model';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class UserService {
+  private baseUrl = 'http://localhost:8080'; // Replace with your API URL
+
+  constructor(private http: HttpClient) {}
+
+  registerUser(user: User): Observable<any> {
+    const payload = {
+      user: { ...user, aadharId: user.aadharId.replace(/\s/g, '') },
+    };
+    return this.http.post(`${this.baseUrl}/users/register`, payload);
+  }
+}
+```
+
+---
+
+### **3. register.component.ts (Logic for Registration Component)**
+
+```typescript
+import { Component } from '@angular/core';
+import { UserService } from '../../services/user.service';
+import { User } from '../../models/user.model';
+
+@Component({
+  selector: 'app-register',
+  templateUrl: './register.component.html',
+  styleUrls: ['./register.component.css'],
+})
+export class RegisterComponent {
+  user: User = {
+    firstName: '',
+    lastName: '',
+    aadharId: '',
+    phoneNumber: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  };
+
+  message: string = '';
+  error: string = '';
+  isLoading: boolean = false;
+
+  constructor(private userService: UserService) {}
+
+  // Input Change Handling
+  onInputChange(field: string, value: string) {
+    switch (field) {
+      case 'aadharId':
+        this.user.aadharId = this.formatAadhar(value);
+        break;
+      case 'phoneNumber':
+        this.user.phoneNumber = this.formatPhone(value);
+        break;
+      case 'firstName':
+      case 'lastName':
+        this.user[field] = this.capitalize(value);
+        break;
+      default:
+        this.user[field] = value;
+    }
+  }
+
+  formatAadhar(value: string): string {
+    const onlyDigits = value.replace(/\D/g, '');
+    return onlyDigits
+      .replace(/(\d{4})(\d)/, '$1 $2')
+      .replace(/(\d{4}) (\d{4})(\d)/, '$1 $2 $3');
+  }
+
+  formatPhone(value: string): string {
+    const onlyDigits = value.replace(/\D/g, '');
+    return onlyDigits.length > 10 ? onlyDigits.slice(0, 10) : onlyDigits;
+  }
+
+  capitalize(value: string): string {
+    return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+  }
+
+  validateEmail(email: string): boolean {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
+  }
+
+  // Submit Registration Form
+  submitForm() {
+    this.error = '';
+    this.message = '';
+
+    if (this.user.password !== this.user.confirmPassword) {
+      this.error = 'Passwords do not match.';
+      return;
+    }
+
+    const normalizedAadharId = this.user.aadharId.replace(/\s/g, '');
+    if (normalizedAadharId.length !== 12) {
+      this.error = 'Aadhar ID must be exactly 12 digits.';
+      return;
+    }
+
+    if (this.user.phoneNumber.length !== 10) {
+      this.error = 'Phone number must be exactly 10 digits.';
+      return;
+    }
+
+    if (!this.validateEmail(this.user.email)) {
+      this.error = 'Invalid email format.';
+      return;
+    }
+
+    this.isLoading = true;
+
+    this.userService.registerUser(this.user).subscribe({
+      next: () => {
+        this.message = 'User registered successfully.';
+        this.resetForm();
+      },
+      error: (err) => {
+        this.error = err.error.message || 'Registration failed.';
+      },
+      complete: () => (this.isLoading = false),
+    });
+  }
+
+  resetForm() {
+    this.user = {
+      firstName: '',
+      lastName: '',
+      aadharId: '',
+      phoneNumber: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+    };
+  }
+}
+```
+
+---
+
+### **4. register.component.html (Enhanced UI)**
+
+```html
+<div class="register-container">
+  <form (submit)="submitForm()" class="register-form">
+    <h2>Register</h2>
+    <div class="input-group">
+      <input
+        placeholder="First Name"
+        (input)="onInputChange('firstName', $event.target.value)"
+        required
+      />
+      <input
+        placeholder="Last Name"
+        (input)="onInputChange('lastName', $event.target.value)"
+        required
+      />
+    </div>
+    <input
+      placeholder="Email"
+      (input)="onInputChange('email', $event.target.value)"
+      required
+    />
+    <input
+      placeholder="Phone Number"
+      maxlength="10"
+      (input)="onInputChange('phoneNumber', $event.target.value)"
+      required
+    />
+    <input
+      placeholder="Aadhar ID"
+      (input)="onInputChange('aadharId', $event.target.value)"
+      required
+    />
+    <input
+      type="password"
+      placeholder="Password"
+      (input)="onInputChange('password', $event.target.value)"
+      required
+    />
+    <input
+      type="password"
+      placeholder="Confirm Password"
+      (input)="onInputChange('confirmPassword', $event.target.value)"
+      required
+    />
+    <button type="submit" [disabled]="isLoading">
+      {{ isLoading ? 'Registering...' : 'Register' }}
+    </button>
+    <p class="success" *ngIf="message">{{ message }}</p>
+    <p class="error" *ngIf="error">{{ error }}</p>
+  </form>
+</div>
+```
+
+---
+
+### **5. register.component.css (Enhanced Styling)**
+
+```css
+.register-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: url('/assets/login-bg.png') no-repeat center center/cover;
+}
+
+.register-form {
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 400px;
+}
+
+.register-form h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.input-group {
+  display: flex;
+  gap: 10px;
+}
+
+input {
+  width: 100%;
+  margin-bottom: 15px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 1rem;
+}
+
+button {
+  width: 100%;
+  padding: 10px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+.success {
+  color: green;
+  text-align: center;
+  margin-top: 10px;
+}
+
+.error {
+  color: red;
+  text-align: center;
+  margin-top: 10px;
+}
+```
+
+---
+
+### **6. Module Imports**
+
+Ensure you import the required modules in `app.module.ts`:
+
+```typescript
+import { HttpClientModule } from '@angular/common/http';
+import { FormsModule } from '@angular/forms';
+
+@NgModule({
+  declarations: [RegisterComponent],
+  imports: [HttpClientModule, FormsModule],
+})
+export class AppModule {}
+```
+
+---
+
+### **Changes Made**
+1. **OTP functionality removed**: No OTP methods or UI.
+2. **Enhanced UI styling**: Modern and clean form with background image.
+3. **Validation logic retained**: Checks for passwords, phone numbers, email, and Aadhar ID.
+
+Now, this version is clean, functional, and ready for use without OTP. Let me know if further enhancements are needed! 🚀
