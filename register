@@ -340,3 +340,21 @@ export class AppModule {}
 3. **Validation logic retained**: Checks for passwords, phone numbers, email, and Aadhar ID.
 
 Now, this version is clean, functional, and ready for use without OTP. Let me know if further enhancements are needed! 🚀
+
+
+onInputChange(field: keyof User, value: string) {
+  switch (field) {
+    case 'aadharId':
+      this.user.aadharId = this.formatAadhar(value);
+      break;
+    case 'phoneNumber':
+      this.user.phoneNumber = this.formatPhone(value);
+      break;
+    case 'firstName':
+    case 'lastName':
+      this.user[field] = this.capitalize(value);
+      break;
+    default:
+      this.user[field] = value;
+  }
+}
