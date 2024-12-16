@@ -358,3 +358,50 @@ onInputChange(field: keyof User, value: string) {
       this.user[field] = value;
   }
 }
+
+
+
+<input
+  placeholder="First Name"
+  (input)="onInputChange('firstName', ($event.target as HTMLInputElement).value)"
+  required
+/>
+<input
+  placeholder="Last Name"
+  (input)="onInputChange('lastName', ($event.target as HTMLInputElement).value)"
+  required
+/>
+<input
+  placeholder="Email"
+  (input)="onInputChange('email', ($event.target as HTMLInputElement).value)"
+  required
+/>
+<input
+  placeholder="Phone Number"
+  maxlength="10"
+  (input)="onInputChange('phoneNumber', ($event.target as HTMLInputElement).value)"
+  required
+/>
+<input
+  placeholder="Aadhar ID"
+  (input)="onInputChange('aadharId', ($event.target as HTMLInputElement).value)"
+  required
+/>
+<input
+  type="password"
+  placeholder="Password"
+  (input)="onInputChange('password', ($event.target as HTMLInputElement).value)"
+  required
+/>
+<input
+  type="password"
+  placeholder="Confirm Password"
+  (input)="onInputChange('confirmPassword', ($event.target as HTMLInputElement).value)"
+  required
+/>
+
+
+onInputChange(field: string, value: string): void {
+  // Handle the input changes accordingly
+  this.formData[field] = value;
+}
