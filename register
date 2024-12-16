@@ -405,3 +405,56 @@ onInputChange(field: string, value: string): void {
   // Handle the input changes accordingly
   this.formData[field] = value;
 }
+
+
+<div class="register-container">
+  <form (submit)="submitForm()" class="register-form">
+    <h2>Register</h2>
+    <div class="input-group">
+      <input
+        placeholder="First Name"
+        (input)="onInputChange('firstName', ($event.target as HTMLInputElement).value)"
+        required
+      />
+      <input
+        placeholder="Last Name"
+        (input)="onInputChange('lastName', ($event.target as HTMLInputElement).value)"
+        required
+      />
+    </div>
+    <input
+      placeholder="Email"
+      (input)="onInputChange('email', ($event.target as HTMLInputElement).value)"
+      required
+    />
+    <input
+      placeholder="Phone Number"
+      maxlength="10"
+      (input)="onInputChange('phoneNumber', ($event.target as HTMLInputElement).value)"
+      required
+    />
+    <input
+      placeholder="Aadhar ID"
+      (input)="onInputChange('aadharId', ($event.target as HTMLInputElement).value)"
+      required
+    />
+    <input
+      type="password"
+      placeholder="Password"
+      (input)="onInputChange('password', ($event.target as HTMLInputElement).value)"
+      required
+    />
+    <input
+      type="password"
+      placeholder="Confirm Password"
+      (input)="onInputChange('confirmPassword', ($event.target as HTMLInputElement).value)"
+      required
+    />
+    <button type="submit" [disabled]="isLoading">
+      {{ isLoading ? 'Registering...' : 'Register' }}
+    </button>
+    <p class="success" *ngIf="message">{{ message }}</p>
+    <p class="error" *ngIf="error">{{ error }}</p>
+  </form>
+</div>
+
