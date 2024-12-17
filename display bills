@@ -1,0 +1,283 @@
+Here’s the converted React code into Angular 19 with added stylings and improvements to make it more visually appealing. This implementation adheres to Angular best practices, such as modular structure and reusable components.
+
+---
+
+### Folder Structure
+```plaintext
+src/
+├── app/
+│   ├── components/
+│   │   ├── topbar/
+│   │   │   ├── topbar.component.ts
+│   │   │   ├── topbar.component.html
+│   │   │   └── topbar.component.scss
+│   ├── pages/
+│   │   ├── display-bills/
+│   │   │   ├── display-bills.component.ts
+│   │   │   ├── display-bills.component.html
+│   │   │   └── display-bills.component.scss
+│   ├── services/
+│   │   ├── api.service.ts
+│   └── app.module.ts
+```
+
+---
+
+### `api.service.ts`
+Handles API calls using Angular’s `HttpClient`.
+
+```typescript
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class ApiService {
+  private baseUrl = 'http://localhost:3000'; // Replace with actual backend URL
+
+  constructor(private http: HttpClient) {}
+
+  getUnpaidReadings(userId: string): Observable<any> {
+    return this.http.get(`${this.baseUrl}/readings/user/${userId}/unpaid`);
+  }
+}
+```
+
+---
+
+### `topbar.component.ts`
+Reusable top bar component.
+
+```typescript
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-topbar',
+  templateUrl: './topbar.component.html',
+  styleUrls: ['./topbar.component.scss'],
+})
+export class TopbarComponent {}
+```
+
+---
+
+### `topbar.component.html`
+```html
+<div class="topbar">
+  <h1 class="title">Electricity Billing System</h1>
+</div>
+```
+
+---
+
+### `topbar.component.scss`
+```scss
+.topbar {
+  background-color: #1e3a8a;
+  color: white;
+  padding: 1rem;
+  text-align: center;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+```
+
+---
+
+### `display-bills.component.ts`
+Handles the logic for displaying unpaid bills.
+
+```typescript
+import { Component, OnInit } from '@angular/core';
+import { ApiService } from '../../services/api.service';
+import { Router } from '@angular/router';
+
+@Component({
+  selector: 'app-display-bills',
+  templateUrl: './display-bills.component.html',
+  styleUrls: ['./display-bills.component.scss'],
+})
+export class DisplayBillsComponent implements OnInit {
+  userId: string = '';
+  unpaidReadingsWithBills: any[] = [];
+  loading: boolean = false;
+
+  constructor(private apiService: ApiService, private router: Router) {}
+
+  ngOnInit(): void {
+    const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+    if (storedUser && storedUser.userId) {
+      this.userId = storedUser.userId;
+      this.fetchUnpaidReadingsWithBills();
+    }
+  }
+
+  fetchUnpaidReadingsWithBills(): void {
+    this.loading = true;
+    this.apiService.getUnpaidReadings(this.userId).subscribe({
+      next: (data) => {
+        this.unpaidReadingsWithBills = data.sort(
+          (a: any, b: any) =>
+            new Date(b.meterReadings.readingDate).getTime() -
+            new Date(a.meterReadings.readingDate).getTime()
+        );
+      },
+      error: (err) => {
+        console.error('Error fetching unpaid readings:', err);
+      },
+      complete: () => {
+        this.loading = false;
+      },
+    });
+  }
+
+  handlePayment(bill: any): void {
+    this.router.navigate([`/payment/${this.userId}/${bill.readingId}`], {
+      state: { bill },
+    });
+  }
+
+  formatReadingDate(date: string): string {
+    return new Date(date).toLocaleDateString();
+  }
+}
+```
+
+---
+
+### `display-bills.component.html`
+```html
+<app-topbar></app-topbar>
+
+<div class="main-content" *ngIf="!loading">
+  <div class="container">
+    <h2 class="heading">Unpaid Bills</h2>
+    <ng-container *ngIf="unpaidReadingsWithBills.length > 0; else noData">
+      <div class="bill-card" *ngFor="let bill of unpaidReadingsWithBills">
+        <div class="bill-details">
+          <p><strong>User ID:</strong> {{ bill.meterReadings.userId }}</p>
+          <p><strong>Connection Type:</strong> {{ bill.meterReadings.connectionType }}</p>
+          <p><strong>Reading Date:</strong> {{ formatReadingDate(bill.meterReadings.readingDate) }}</p>
+          <p><strong>Units Consumed:</strong> {{ bill.meterReadings.unitsConsumed }}</p>
+          <p><strong>Bill No:</strong> {{ bill.bill.billId }}</p>
+        </div>
+        <div class="bill-actions">
+          <p class="amount">₹{{ bill.bill.amount }}</p>
+          <button (click)="handlePayment(bill)" class="pay-btn">Pay Now</button>
+        </div>
+      </div>
+    </ng-container>
+    <ng-template #noData>
+      <p class="no-data">No unpaid readings found.</p>
+    </ng-template>
+  </div>
+</div>
+
+<div class="loading-overlay" *ngIf="loading">
+  <div class="loader"></div>
+</div>
+```
+
+---
+
+### `display-bills.component.scss`
+```scss
+.main-content {
+  padding: 2rem;
+  background-image: url('/assets/bg-2.jpeg');
+  background-size: cover;
+  background-position: center;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 10px;
+  padding: 2rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.heading {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #1e3a8a;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.bill-card {
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  margin-bottom: 1rem;
+  background: #f9f9f9;
+}
+
+.bill-details p {
+  margin: 0.5rem 0;
+}
+
+.bill-actions {
+  text-align: center;
+}
+
+.amount {
+  font-size: 1.5rem;
+  color: #10b981;
+  margin-bottom: 1rem;
+}
+
+.pay-btn {
+  padding: 0.5rem 1rem;
+  color: #fff;
+  background: #2563eb;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.pay-btn:hover {
+  background: #1d4ed8;
+}
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.loader {
+  border: 6px solid #f3f3f3;
+  border-top: 6px solid #2563eb;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+```
+
+This Angular code provides a complete solution with stylized components, animations, and responsiveness. Let me know if you need further enhancements!
