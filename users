@@ -974,3 +974,261 @@ public interface UserRepository extends JpaRepository<User, String> {
 - **DAO Layer** interacts directly with the database and performs CRUD operations.
 
 By separating these concerns, your application becomes more modular, maintainable, and scalable.
+
+
+
+
+
+
+
+
+
+Sure! Here's an example of the **frontend code** in **Angular** to display the **User List** by fetching data from the backend (Spring Boot API). This code includes components, services, and basic styling to display the list of users.
+
+### **1. User Service in Angular**
+
+The service will make HTTP requests to the Spring Boot API to fetch the user data.
+
+```typescript
+// src/app/services/user.service.ts
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { environment } from 'src/environments/environment';
+import { User } from '../models/user.model';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class UserService {
+
+  private apiUrl = `${environment.apiBaseUrl}/api/users`;
+
+  constructor(private http: HttpClient) { }
+
+  getAllUsers(): Observable<User[]> {
+    return this.http.get<User[]>(this.apiUrl);
+  }
+}
+```
+
+### **2. User Model**
+
+Define the structure of a `User` object based on the backend API response.
+
+```typescript
+// src/app/models/user.model.ts
+export interface User {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  aadharId: string;
+  phoneNumber: string;
+  email: string;
+}
+```
+
+### **3. User List Component**
+
+This component will display the list of users fetched from the backend.
+
+```typescript
+// src/app/components/user-list/user-list.component.ts
+import { Component, OnInit } from '@angular/core';
+import { UserService } from 'src/app/services/user.service';
+import { User } from 'src/app/models/user.model';
+
+@Component({
+  selector: 'app-user-list',
+  templateUrl: './user-list.component.html',
+  styleUrls: ['./user-list.component.css']
+})
+export class UserListComponent implements OnInit {
+  users: User[] = [];
+  isLoading = true;
+  errorMessage: string = '';
+
+  constructor(private userService: UserService) { }
+
+  ngOnInit(): void {
+    this.userService.getAllUsers().subscribe({
+      next: (data) => {
+        this.users = data;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        this.errorMessage = 'Failed to load users.';
+        this.isLoading = false;
+      }
+    });
+  }
+}
+```
+
+### **4. User List HTML Template**
+
+This HTML template displays the user list in a table format.
+
+```html
+<!-- src/app/components/user-list/user-list.component.html -->
+<div *ngIf="isLoading" class="loading">Loading users...</div>
+<div *ngIf="errorMessage" class="error">{{ errorMessage }}</div>
+
+<div *ngIf="!isLoading && !errorMessage">
+  <h2>User List</h2>
+  <table class="user-table">
+    <thead>
+      <tr>
+        <th>User ID</th>
+        <th>First Name</th>
+        <th>Last Name</th>
+        <th>Aadhar ID</th>
+        <th>Phone Number</th>
+        <th>Email</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let user of users">
+        <td>{{ user.userId }}</td>
+        <td>{{ user.firstName }}</td>
+        <td>{{ user.lastName }}</td>
+        <td>{{ user.aadharId }}</td>
+        <td>{{ user.phoneNumber }}</td>
+        <td>{{ user.email }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+```
+
+### **5. User List Component CSS**
+
+Add some basic styling to make the user list look presentable.
+
+```css
+/* src/app/components/user-list/user-list.component.css */
+.loading {
+  font-size: 20px;
+  color: #007bff;
+  text-align: center;
+}
+
+.error {
+  font-size: 18px;
+  color: red;
+  text-align: center;
+}
+
+h2 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.user-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.user-table th,
+.user-table td {
+  padding: 10px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+.user-table th {
+  background-color: #f4f4f4;
+  font-weight: bold;
+}
+
+.user-table tr:hover {
+  background-color: #f1f1f1;
+}
+```
+
+### **6. App Component**
+
+You can include the `UserListComponent` in your main application component or any other appropriate component.
+
+```html
+<!-- src/app/app.component.html -->
+<app-user-list></app-user-list>
+```
+
+### **7. Environment Configuration**
+
+Ensure your environment configuration includes the correct backend API base URL.
+
+```typescript
+// src/environments/environment.ts
+export const environment = {
+  production: false,
+  apiBaseUrl: 'http://localhost:8080'  // URL of your backend API
+};
+```
+
+### **8. App Module**
+
+Make sure to import the necessary modules and declare your component and service.
+
+```typescript
+// src/app/app.module.ts
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { HttpClientModule } from '@angular/common/http';
+import { AppComponent } from './app.component';
+import { UserListComponent } from './components/user-list/user-list.component';
+import { UserService } from './services/user.service';
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    UserListComponent
+  ],
+  imports: [
+    BrowserModule,
+    HttpClientModule
+  ],
+  providers: [UserService],
+  bootstrap: [AppComponent]
+})
+export class AppModule { }
+```
+
+### **Final Structure**
+
+The final folder structure will look like this:
+
+```
+src/
+│
+├── app/
+│   ├── components/
+│   │   └── user-list/
+│   │       ├── user-list.component.ts
+│   │       ├── user-list.component.html
+│   │       └── user-list.component.css
+│   │
+│   ├── models/
+│   │   └── user.model.ts
+│   │
+│   ├── services/
+│   │   └── user.service.ts
+│   │
+│   ├── app.module.ts
+│   ├── app.component.ts
+│   └── app.component.html
+│
+├── environments/
+│   └── environment.ts
+└── index.html
+```
+
+### **How It Works:**
+1. **UserService**: Fetches the user data from the backend using the `HttpClient`.
+2. **UserListComponent**: Displays the list of users in a table format.
+3. **Styling**: Basic styles are provided to format the table and handle loading and error states.
+4. **AppModule**: Registers necessary modules and services for the app.
+
+This approach will allow you to interact with your Spring Boot backend and display the user list on the frontend. You can extend it further by adding more features like pagination, editing, or deleting users.
