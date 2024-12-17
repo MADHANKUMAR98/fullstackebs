@@ -1,0 +1,748 @@
+// Backend: Spring Boot MVC Code
+
+// 1. User Entity Class (already provided by you)
+
+package com.tangedco.spring.eb_billing_system.controller;
+
+import com.tangedco.spring.eb_billing_system.dao.UserRepository;
+import com.tangedco.spring.eb_billing_system.entity.User;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/users")
+@CrossOrigin(origins = "*")
+public class UserController {
+
+    @Autowired
+    private UserRepository userRepository;
+
+    // Create User
+    @PostMapping("/add")
+    public ResponseEntity<String> addUser(@RequestBody User user) {
+        if (userRepository.existsByAadharId(user.getAadharId()) || userRepository.existsByEmail(user.getEmail())) {
+            return ResponseEntity.badRequest().body("User with the same Aadhar ID or Email already exists.");
+        }
+        user.setUserId("USER" + String.format("%04d", userRepository.findMaxUserIdSuffix() + 1));
+        userRepository.save(user);
+        return ResponseEntity.ok("User added successfully with ID: " + user.getUserId());
+    }
+
+    // Get All Users
+    @GetMapping
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    // Get User by ID
+    @GetMapping("/{id}")
+    public ResponseEntity<User> getUserById(@PathVariable String id) {
+        Optional<User> user = userRepository.findByUserId(id);
+        return user.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    // Update User
+    @PutMapping("/{id}")
+    public ResponseEntity<String> updateUser(@PathVariable String id, @RequestBody User updatedUser) {
+        Optional<User> userOptional = userRepository.findByUserId(id);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            user.setFirstName(updatedUser.getFirstName());
+            user.setLastName(updatedUser.getLastName());
+            user.setAadharId(updatedUser.getAadharId());
+            user.setPhoneNumber(updatedUser.getPhoneNumber());
+            user.setEmail(updatedUser.getEmail());
+            userRepository.save(user);
+            return ResponseEntity.ok("User updated successfully.");
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    // Delete User
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteUser(@PathVariable String id) {
+        if (userRepository.existsById(id)) {
+            userRepository.deleteById(id);
+            return ResponseEntity.ok("User deleted successfully.");
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+}
+
+
+
+To structure the Spring Boot MVC code and create the Angular frontend to interact with the backend, we'll break it down into two parts: **Backend (Spring Boot MVC)** and **Frontend (Angular)**.
+
+### Backend MVC Code Structure
+
+1. **Model Layer (Entities)**: You already have the `User` entity, which will be used as the data model for the application.
+
+   ```java
+   // User Entity Class
+   package com.tangedco.spring.eb_billing_system.entity;
+
+   import javax.persistence.Entity;
+   import javax.persistence.Id;
+
+   @Entity
+   public class User {
+
+       @Id
+       private String userId;
+       private String firstName;
+       private String lastName;
+       private String aadharId;
+       private String phoneNumber;
+       private String email;
+
+       // Getters and Setters
+   }
+   ```
+
+2. **Repository Layer (DAO)**: This is where the database interactions are defined. You can use Spring Data JPA to interact with the database.
+
+   ```java
+   // User Repository
+   package com.tangedco.spring.eb_billing_system.dao;
+
+   import com.tangedco.spring.eb_billing_system.entity.User;
+   import org.springframework.data.jpa.repository.JpaRepository;
+
+   public interface UserRepository extends JpaRepository<User, String> {
+
+       Optional<User> findByUserId(String userId);
+
+       boolean existsByAadharId(String aadharId);
+
+       boolean existsByEmail(String email);
+
+       // Custom method to find the max user ID suffix
+       @Query("SELECT MAX(CAST(SUBSTRING(u.userId, 5) AS INT)) FROM User u")
+       int findMaxUserIdSuffix();
+   }
+   ```
+
+3. **Service Layer**: If needed, you can add service classes to handle business logic, though it's fine to keep it in the controller for simple applications.
+
+4. **Controller Layer**: The `UserController` class that you've already provided manages all HTTP requests.
+
+### Angular Frontend Code Structure
+
+1. **Folder Structure**:
+   - `src/app/`
+     - `components/`
+       - `user/`
+         - `user-list/`
+         - `user-add/`
+         - `user-edit/`
+     - `services/`
+       - `user.service.ts`
+     - `models/`
+       - `user.model.ts`
+     - `app.module.ts`
+     - `app-routing.module.ts`
+
+2. **Angular Service (user.service.ts)**: The service will handle HTTP calls to the backend API.
+
+   ```typescript
+   // src/app/services/user.service.ts
+   import { Injectable } from '@angular/core';
+   import { HttpClient } from '@angular/common/http';
+   import { Observable } from 'rxjs';
+   import { User } from '../models/user.model';
+
+   @Injectable({
+     providedIn: 'root'
+   })
+   export class UserService {
+     private apiUrl = 'http://localhost:8080/api/users';
+
+     constructor(private http: HttpClient) {}
+
+     // Get all users
+     getUsers(): Observable<User[]> {
+       return this.http.get<User[]>(this.apiUrl);
+     }
+
+     // Get a user by ID
+     getUser(id: string): Observable<User> {
+       return this.http.get<User>(`${this.apiUrl}/${id}`);
+     }
+
+     // Add a user
+     addUser(user: User): Observable<string> {
+       return this.http.post<string>(`${this.apiUrl}/add`, user);
+     }
+
+     // Update a user
+     updateUser(id: string, user: User): Observable<string> {
+       return this.http.put<string>(`${this.apiUrl}/${id}`, user);
+     }
+
+     // Delete a user
+     deleteUser(id: string): Observable<string> {
+       return this.http.delete<string>(`${this.apiUrl}/${id}`);
+     }
+   }
+   ```
+
+3. **User Model (user.model.ts)**: Define the `User` data model.
+
+   ```typescript
+   // src/app/models/user.model.ts
+   export interface User {
+     userId: string;
+     firstName: string;
+     lastName: string;
+     aadharId: string;
+     phoneNumber: string;
+     email: string;
+   }
+   ```
+
+4. **User List Component (user-list.component.ts)**: Display all users.
+
+   ```typescript
+   // src/app/components/user/user-list/user-list.component.ts
+   import { Component, OnInit } from '@angular/core';
+   import { UserService } from '../../../services/user.service';
+   import { User } from '../../../models/user.model';
+
+   @Component({
+     selector: 'app-user-list',
+     templateUrl: './user-list.component.html',
+     styleUrls: ['./user-list.component.css']
+   })
+   export class UserListComponent implements OnInit {
+     users: User[] = [];
+
+     constructor(private userService: UserService) {}
+
+     ngOnInit(): void {
+       this.loadUsers();
+     }
+
+     loadUsers(): void {
+       this.userService.getUsers().subscribe((data) => {
+         this.users = data;
+       });
+     }
+
+     deleteUser(id: string): void {
+       this.userService.deleteUser(id).subscribe(() => {
+         this.loadUsers();
+       });
+     }
+   }
+   ```
+
+5. **User List Template (user-list.component.html)**:
+
+   ```html
+   <!-- src/app/components/user/user-list/user-list.component.html -->
+   <div class="container">
+     <h2>User List</h2>
+     <table class="table">
+       <thead>
+         <tr>
+           <th>User ID</th>
+           <th>First Name</th>
+           <th>Last Name</th>
+           <th>Email</th>
+           <th>Actions</th>
+         </tr>
+       </thead>
+       <tbody>
+         <tr *ngFor="let user of users">
+           <td>{{ user.userId }}</td>
+           <td>{{ user.firstName }}</td>
+           <td>{{ user.lastName }}</td>
+           <td>{{ user.email }}</td>
+           <td>
+             <button (click)="deleteUser(user.userId)">Delete</button>
+           </td>
+         </tr>
+       </tbody>
+     </table>
+   </div>
+   ```
+
+6. **User Add Component (user-add.component.ts)**: Add a new user.
+
+   ```typescript
+   // src/app/components/user/user-add/user-add.component.ts
+   import { Component } from '@angular/core';
+   import { UserService } from '../../../services/user.service';
+   import { Router } from '@angular/router';
+   import { User } from '../../../models/user.model';
+
+   @Component({
+     selector: 'app-user-add',
+     templateUrl: './user-add.component.html',
+     styleUrls: ['./user-add.component.css']
+   })
+   export class UserAddComponent {
+     user: User = {
+       userId: '',
+       firstName: '',
+       lastName: '',
+       aadharId: '',
+       phoneNumber: '',
+       email: ''
+     };
+
+     constructor(private userService: UserService, private router: Router) {}
+
+     addUser(): void {
+       this.userService.addUser(this.user).subscribe((response) => {
+         alert(response);
+         this.router.navigate(['/users']);
+       });
+     }
+   }
+   ```
+
+7. **User Add Template (user-add.component.html)**:
+
+   ```html
+   <!-- src/app/components/user/user-add/user-add.component.html -->
+   <div class="container">
+     <h2>Add User</h2>
+     <form (ngSubmit)="addUser()">
+       <div>
+         <label for="firstName">First Name</label>
+         <input id="firstName" [(ngModel)]="user.firstName" name="firstName" required />
+       </div>
+       <div>
+         <label for="lastName">Last Name</label>
+         <input id="lastName" [(ngModel)]="user.lastName" name="lastName" required />
+       </div>
+       <div>
+         <label for="aadharId">Aadhar ID</label>
+         <input id="aadharId" [(ngModel)]="user.aadharId" name="aadharId" required />
+       </div>
+       <div>
+         <label for="phoneNumber">Phone Number</label>
+         <input id="phoneNumber" [(ngModel)]="user.phoneNumber" name="phoneNumber" required />
+       </div>
+       <div>
+         <label for="email">Email</label>
+         <input id="email" [(ngModel)]="user.email" name="email" required />
+       </div>
+       <button type="submit">Add User</button>
+     </form>
+   </div>
+   ```
+
+8. **Routing (app-routing.module.ts)**:
+
+   ```typescript
+   // src/app/app-routing.module.ts
+   import { NgModule } from '@angular/core';
+   import { RouterModule, Routes } from '@angular/router';
+   import { UserListComponent } from './components/user/user-list/user-list.component';
+   import { UserAddComponent } from './components/user/user-add/user-add.component';
+
+   const routes: Routes = [
+     { path: 'users', component: UserListComponent },
+     { path: 'users/add', component: UserAddComponent },
+     { path: '', redirectTo: '/users', pathMatch: 'full' }
+   ];
+
+   @NgModule({
+     imports: [RouterModule.forRoot(routes)],
+     exports: [RouterModule]
+   })
+   export class AppRoutingModule {}
+   ```
+
+### App Module
+
+Finally, update the `app.module.ts` to import necessary modules.
+
+```typescript
+// src/app/app.module.ts
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { FormsModule } from '@angular/forms';
+import { HttpClientModule } from '@angular/common/http';
+import { AppRoutingModule } from './app-routing.module';
+import { AppComponent } from './app.component';
+import { UserListComponent } from './components/user/user-list/user-list.component';
+import { UserAddComponent } from './components/user/user-add/user-add.component';
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    UserListComponent,
+    UserAddComponent
+  ],
+  imports: [
+    BrowserModule,
+    AppRoutingModule,
+    FormsModule,
+    HttpClientModule
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule {}
+```
+
+### Summary
+- **Backend**: Spring Boot MVC with controllers, repository, and entities.
+- **Frontend**: Angular app with services to communicate with the backend, components for listing and adding users, and routing for navigation.
+
+This structure should allow you to create a functional app where Angular communicates with Spring Boot to handle user data.
+
+
+Certainly! Let's add some basic styles to improve the user experience on both the list and form components in your Angular application.
+
+### 1. **Global Styles (styles.css)**
+
+You can define global styles in the `styles.css` file to ensure consistent look and feel across the entire app.
+
+```css
+/* src/styles.css */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f4f4f4;
+  padding: 20px;
+}
+
+.container {
+  width: 80%;
+  margin: 0 auto;
+  background-color: white;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  border-radius: 8px;
+}
+
+h2 {
+  font-size: 2rem;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+table, th, td {
+  border: 1px solid #ddd;
+}
+
+th, td {
+  padding: 10px;
+  text-align: left;
+}
+
+th {
+  background-color: #f4f4f4;
+}
+
+button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+form div {
+  margin-bottom: 15px;
+}
+
+form label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+form input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+form button {
+  width: 100%;
+  padding: 12px;
+  background-color: #28a745;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  color: white;
+  transition: background-color 0.3s ease;
+}
+
+form button:hover {
+  background-color: #218838;
+}
+
+.alert {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 10px;
+  border-radius: 4px;
+  margin-top: 15px;
+}
+```
+
+### 2. **User List Component Styling (user-list.component.css)**
+
+This will ensure the list looks clean, with a table layout and styled buttons.
+
+```css
+/* src/app/components/user/user-list/user-list.component.css */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.table th,
+.table td {
+  padding: 10px;
+  text-align: left;
+}
+
+.table th {
+  background-color: #f4f4f4;
+}
+
+.table tbody tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+button {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+button:hover {
+  background-color: #c0392b;
+}
+```
+
+### 3. **User Add Component Styling (user-add.component.css)**
+
+We'll style the form elements to ensure they are visually appealing and user-friendly.
+
+```css
+/* src/app/components/user/user-add/user-add.component.css */
+form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 15px;
+}
+
+form div {
+  margin-bottom: 20px;
+}
+
+form input {
+  font-size: 1rem;
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+form button {
+  font-size: 1.1rem;
+  background-color: #007bff;
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+form button:hover {
+  background-color: #0056b3;
+}
+
+form button:focus {
+  outline: none;
+}
+
+form div:last-child {
+  margin-top: 30px;
+}
+```
+
+### 4. **User List Template (user-list.component.html)**
+
+We'll add some styling for the list view, such as spacing, borders, and hover effects.
+
+```html
+<!-- src/app/components/user/user-list/user-list.component.html -->
+<div class="container">
+  <h2>User List</h2>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>User ID</th>
+        <th>First Name</th>
+        <th>Last Name</th>
+        <th>Email</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let user of users">
+        <td>{{ user.userId }}</td>
+        <td>{{ user.firstName }}</td>
+        <td>{{ user.lastName }}</td>
+        <td>{{ user.email }}</td>
+        <td>
+          <button (click)="deleteUser(user.userId)">Delete</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+```
+
+### 5. **User Add Template (user-add.component.html)**
+
+We’ll structure the form fields in a clean layout.
+
+```html
+<!-- src/app/components/user/user-add/user-add.component.html -->
+<div class="container">
+  <h2>Add New User</h2>
+  <form (ngSubmit)="addUser()">
+    <div>
+      <label for="firstName">First Name</label>
+      <input id="firstName" [(ngModel)]="user.firstName" name="firstName" required />
+    </div>
+    <div>
+      <label for="lastName">Last Name</label>
+      <input id="lastName" [(ngModel)]="user.lastName" name="lastName" required />
+    </div>
+    <div>
+      <label for="aadharId">Aadhar ID</label>
+      <input id="aadharId" [(ngModel)]="user.aadharId" name="aadharId" required />
+    </div>
+    <div>
+      <label for="phoneNumber">Phone Number</label>
+      <input id="phoneNumber" [(ngModel)]="user.phoneNumber" name="phoneNumber" required />
+    </div>
+    <div>
+      <label for="email">Email</label>
+      <input id="email" [(ngModel)]="user.email" name="email" required />
+    </div>
+    <button type="submit">Add User</button>
+  </form>
+</div>
+```
+
+### 6. **User Service Styling Feedback (user.service.ts)**
+
+Ensure you include feedback for successful and failed API calls.
+
+For instance, in the **User Add Component**, you can show an alert message after a user is successfully added or if there's an error:
+
+```typescript
+// src/app/components/user/user-add/user-add.component.ts
+import { Component } from '@angular/core';
+import { UserService } from '../../../services/user.service';
+import { Router } from '@angular/router';
+import { User } from '../../../models/user.model';
+
+@Component({
+  selector: 'app-user-add',
+  templateUrl: './user-add.component.html',
+  styleUrls: ['./user-add.component.css']
+})
+export class UserAddComponent {
+  user: User = {
+    userId: '',
+    firstName: '',
+    lastName: '',
+    aadharId: '',
+    phoneNumber: '',
+    email: ''
+  };
+  successMessage: string = '';
+  errorMessage: string = '';
+
+  constructor(private userService: UserService, private router: Router) {}
+
+  addUser(): void {
+    this.userService.addUser(this.user).subscribe(
+      (response) => {
+        this.successMessage = response;
+        this.errorMessage = '';
+        setTimeout(() => {
+          this.router.navigate(['/users']);
+        }, 1500);
+      },
+      (error) => {
+        this.errorMessage = 'Failed to add user. Please try again.';
+        this.successMessage = '';
+      }
+    );
+  }
+}
+```
+
+Now, you can display the success and error messages in the HTML template:
+
+```html
+<!-- src/app/components/user/user-add/user-add.component.html -->
+<div class="container">
+  <h2>Add New User</h2>
+  <form (ngSubmit)="addUser()">
+    <!-- Form Fields -->
+
+    <button type="submit">Add User</button>
+
+    <div *ngIf="successMessage" class="alert alert-success">
+      {{ successMessage }}
+    </div>
+    <div *ngIf="errorMessage" class="alert alert-danger">
+      {{ errorMessage }}
+    </div>
+  </form>
+</div>
+```
+
+### 7. **Final Touches:**
+
+- **Table Design**: Added hover effect, alternating row colors, and table border.
+- **Form Design**: Added margin, padding, hover effects for buttons, and focus states for input fields.
+- **Alert Messages**: Styled success and error messages for better user feedback.
+
+This structure, with additional styling, should give you a polished UI for your Angular app while interacting with your Spring Boot backend. You can further improve it by adding more complex UI components like modals, dropdowns, or even a loading spinner depending on the complexity of your app.
