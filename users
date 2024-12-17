@@ -746,3 +746,231 @@ Now, you can display the success and error messages in the HTML template:
 - **Alert Messages**: Styled success and error messages for better user feedback.
 
 This structure, with additional styling, should give you a polished UI for your Angular app while interacting with your Spring Boot backend. You can further improve it by adding more complex UI components like modals, dropdowns, or even a loading spinner depending on the complexity of your app.
+
+
+
+
+
+
+
+
+Sure! Below is an example of how to structure the **Service Layer** in a Spring Boot application. This layer acts as a bridge between the **Controller Layer** and the **DAO (Repository) Layer**. The service layer contains business logic and delegates data-related operations to the repository layer.
+
+### **1. User Service Interface**
+
+This defines the methods that the service layer will implement.
+
+```java
+// src/main/java/com/tangedco/spring/eb_billing_system/service/UserService.java
+package com.tangedco.spring.eb_billing_system.service;
+
+import com.tangedco.spring.eb_billing_system.entity.User;
+import java.util.List;
+import java.util.Optional;
+
+public interface UserService {
+    User addUser(User user);
+    List<User> getAllUsers();
+    Optional<User> getUserById(String userId);
+    User updateUser(String userId, User updatedUser);
+    boolean deleteUser(String userId);
+}
+```
+
+### **2. User Service Implementation**
+
+This class contains the actual implementation of the business logic. It uses the `UserRepository` to interact with the database.
+
+```java
+// src/main/java/com/tangedco/spring/eb_billing_system/service/UserServiceImpl.java
+package com.tangedco.spring.eb_billing_system.service;
+
+import com.tangedco.spring.eb_billing_system.dao.UserRepository;
+import com.tangedco.spring.eb_billing_system.entity.User;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class UserServiceImpl implements UserService {
+
+    private final UserRepository userRepository;
+
+    @Autowired
+    public UserServiceImpl(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    @Override
+    public User addUser(User user) {
+        if (userRepository.existsByAadharId(user.getAadharId()) || userRepository.existsByEmail(user.getEmail())) {
+            throw new IllegalArgumentException("User with the same Aadhar ID or Email already exists.");
+        }
+        user.setUserId("USER" + String.format("%04d", userRepository.findMaxUserIdSuffix() + 1));
+        return userRepository.save(user);
+    }
+
+    @Override
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    @Override
+    public Optional<User> getUserById(String userId) {
+        return userRepository.findByUserId(userId);
+    }
+
+    @Override
+    public User updateUser(String userId, User updatedUser) {
+        Optional<User> existingUser = userRepository.findByUserId(userId);
+        if (existingUser.isPresent()) {
+            User user = existingUser.get();
+            user.setFirstName(updatedUser.getFirstName());
+            user.setLastName(updatedUser.getLastName());
+            user.setAadharId(updatedUser.getAadharId());
+            user.setPhoneNumber(updatedUser.getPhoneNumber());
+            user.setEmail(updatedUser.getEmail());
+            return userRepository.save(user);
+        } else {
+            throw new IllegalArgumentException("User not found with ID: " + userId);
+        }
+    }
+
+    @Override
+    public boolean deleteUser(String userId) {
+        Optional<User> user = userRepository.findByUserId(userId);
+        if (user.isPresent()) {
+            userRepository.deleteById(userId);
+            return true;
+        } else {
+            throw new IllegalArgumentException("User not found with ID: " + userId);
+        }
+    }
+}
+```
+
+### **3. User Controller Layer**
+
+The controller interacts with the service layer to perform the operations, and the service layer, in turn, communicates with the repository layer for data persistence.
+
+```java
+// src/main/java/com/tangedco/spring/eb_billing_system/controller/UserController.java
+package com.tangedco.spring.eb_billing_system.controller;
+
+import com.tangedco.spring.eb_billing_system.entity.User;
+import com.tangedco.spring.eb_billing_system.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/users")
+@CrossOrigin(origins = "*")
+public class UserController {
+
+    private final UserService userService;
+
+    @Autowired
+    public UserController(UserService userService) {
+        this.userService = userService;
+    }
+
+    // Create User
+    @PostMapping("/add")
+    public ResponseEntity<String> addUser(@RequestBody User user) {
+        try {
+            userService.addUser(user);
+            return ResponseEntity.ok("User added successfully with ID: " + user.getUserId());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // Get All Users
+    @GetMapping
+    public List<User> getAllUsers() {
+        return userService.getAllUsers();
+    }
+
+    // Get User by ID
+    @GetMapping("/{id}")
+    public ResponseEntity<User> getUserById(@PathVariable String id) {
+        Optional<User> user = userService.getUserById(id);
+        return user.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    // Update User
+    @PutMapping("/{id}")
+    public ResponseEntity<String> updateUser(@PathVariable String id, @RequestBody User updatedUser) {
+        try {
+            userService.updateUser(id, updatedUser);
+            return ResponseEntity.ok("User updated successfully.");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    // Delete User
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteUser(@PathVariable String id) {
+        try {
+            if (userService.deleteUser(id)) {
+                return ResponseEntity.ok("User deleted successfully.");
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+}
+```
+
+### Explanation of Service Layer:
+
+1. **UserService Interface**: This interface defines the core methods for user operations (`addUser`, `getAllUsers`, `getUserById`, `updateUser`, `deleteUser`).
+
+2. **UserServiceImpl**: This class implements the `UserService` interface. It contains the actual logic to handle user operations:
+   - **addUser**: Adds a new user after validating if the Aadhar ID or email already exists.
+   - **getAllUsers**: Returns a list of all users.
+   - **getUserById**: Fetches a user by their unique user ID.
+   - **updateUser**: Updates an existing user based on the provided user ID.
+   - **deleteUser**: Deletes the user by their user ID.
+
+3. **UserController**: The controller receives HTTP requests and delegates them to the service layer:
+   - It handles user-related operations like adding, fetching, updating, and deleting users.
+
+### **4. User Repository Layer (DAO Layer)**
+
+To make the service layer work, you need the repository layer to interact with the database.
+
+```java
+// src/main/java/com/tangedco/spring/eb_billing_system/dao/UserRepository.java
+package com.tangedco.spring.eb_billing_system.dao;
+
+import com.tangedco.spring.eb_billing_system.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+@Repository
+public interface UserRepository extends JpaRepository<User, String> {
+    boolean existsByAadharId(String aadharId);
+    boolean existsByEmail(String email);
+    Optional<User> findByUserId(String userId);
+    int findMaxUserIdSuffix();  // Assuming you have this method implemented in the DB
+}
+```
+
+### Summary:
+- **Controller Layer** handles HTTP requests and delegates them to the **Service Layer**.
+- **Service Layer** contains the business logic and interacts with the **DAO Layer** (the repository) to fetch or persist data.
+- **DAO Layer** interacts directly with the database and performs CRUD operations.
+
+By separating these concerns, your application becomes more modular, maintainable, and scalable.
