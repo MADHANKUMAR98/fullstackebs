@@ -343,3 +343,133 @@ public interface BillRepository extends JpaRepository<Bill, Long> {
     List<Bill> findAllByOrderByDueDateAsc();
 }
 
+
+
+
+Here’s the updated code where `Bill` is renamed to `BillEntity`, and `BillRepository` is renamed to `BillRepo`. 
+
+---
+
+### **BillEntity**
+
+```java
+package com.tangedco.spring.eb_billing_system.entity;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Getter
+@Setter
+public class BillEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne
+    @JoinColumn(name = "customer_id", nullable = false)
+    @JsonIgnore
+    private User customer;
+
+    private Double amount;
+
+    private String status; // PENDING or PAID
+
+    private LocalDateTime dueDate;
+
+    private LocalDateTime timestamp; // For payment or generation
+
+    private String paymentMethod; // e.g., Credit Card, Debit Card
+}
+```
+
+---
+
+### **BillRepo**
+
+```java
+package com.tangedco.spring.eb_billing_system.repository;
+
+import com.tangedco.spring.eb_billing_system.entity.BillEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface BillRepo extends JpaRepository<BillEntity, Long> {
+    
+    // Find all bills associated with a specific customer ID
+    List<BillEntity> findByCustomerId(String customerId);
+
+    // Find all unpaid bills for a specific customer
+    List<BillEntity> findByCustomerIdAndStatus(String customerId, String status);
+
+    // Retrieve all bills ordered by due date
+    List<BillEntity> findAllByOrderByDueDateAsc();
+}
+```
+
+---
+
+### Explanation of the Changes:
+
+1. **Class and File Renaming**:
+   - `Bill` → `BillEntity`.
+   - `BillRepository` → `BillRepo`.
+
+2. **Entity Adjustments**:
+   - Renamed the `@Entity` name and class references to `BillEntity`.
+
+3. **Repository Adjustments**:
+   - Adjusted all repository method references to use `BillEntity`.
+
+---
+
+### Example Service Layer Usage
+
+Here's an example of how you would use the updated `BillRepo` in your service layer:
+
+```java
+@Service
+public class BillServiceImpl implements BillService {
+
+    @Autowired
+    private BillRepo billRepo;
+
+    @Override
+    public List<BillEntity> getPendingBillsByCustomer(String customerId) {
+        return billRepo.findByCustomerIdAndStatus(customerId, "PENDING");
+    }
+
+    @Override
+    public List<BillEntity> getAllBillsByCustomer(String customerId) {
+        return billRepo.findByCustomerId(customerId);
+    }
+
+    @Override
+    public List<BillEntity> getAllBillsSortedByDueDate() {
+        return billRepo.findAllByOrderByDueDateAsc();
+    }
+}
+```
+
+---
+
+### Sample Data Flow
+
+1. **Admin**: 
+   - Generates a bill for a customer using `BillEntity` and saves it using `BillRepo`.
+
+2. **Customer**: 
+   - Logs in, fetches pending bills using `billRepo.findByCustomerIdAndStatus(customerId, "PENDING")`.
+   - Pays a bill, updates its status to `PAID`.
+
+---
+
+Let me know if further adjustments are needed!
