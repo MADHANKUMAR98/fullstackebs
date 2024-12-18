@@ -1,0 +1,303 @@
+Here’s a complete **Spring Boot backend code** for managing users, including the controller, service, repository, entity, and necessary configurations. This code assumes you are using **Spring Boot 3.x** and **Hibernate/JPA** for database management.
+
+---
+
+### **Backend Code**
+
+#### 1. **User Entity**
+
+The `User` entity class represents the `users` table in the database.
+
+```java
+// src/main/java/com/tangedco/spring/eb_billing_system/entity/User.java
+package com.tangedco.spring.eb_billing_system.entity;
+
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "users")
+public class User {
+
+    @Id
+    @Column(name = "user_id", nullable = false, unique = true)
+    private String userId;
+
+    @Column(name = "first_name", nullable = false)
+    private String firstName;
+
+    @Column(name = "last_name")
+    private String lastName;
+
+    @Column(name = "aadhar_id", nullable = false, unique = true)
+    private String aadharId;
+
+    @Column(name = "phone_number", nullable = false)
+    private String phoneNumber;
+
+    @Column(name = "email", nullable = false, unique = true)
+    private String email;
+
+    // Getters and Setters
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
+
+    public String getFirstName() { return firstName; }
+    public void setFirstName(String firstName) { this.firstName = firstName; }
+
+    public String getLastName() { return lastName; }
+    public void setLastName(String lastName) { this.lastName = lastName; }
+
+    public String getAadharId() { return aadharId; }
+    public void setAadharId(String aadharId) { this.aadharId = aadharId; }
+
+    public String getPhoneNumber() { return phoneNumber; }
+    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+}
+```
+
+---
+
+#### 2. **User Repository**
+
+The `UserRepository` handles database queries.
+
+```java
+// src/main/java/com/tangedco/spring/eb_billing_system/repository/UserRepository.java
+package com.tangedco.spring.eb_billing_system.repository;
+
+import com.tangedco.spring.eb_billing_system.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+@Repository
+public interface UserRepository extends JpaRepository<User, String> {
+
+    Optional<User> findByUserId(String userId);
+
+    boolean existsByAadharId(String aadharId);
+
+    boolean existsByEmail(String email);
+
+    @Query("SELECT COALESCE(MAX(CAST(SUBSTRING(u.userId, 5) AS int)), 0) FROM User u")
+    int findMaxUserIdSuffix();
+}
+```
+
+---
+
+#### 3. **User Service**
+
+The `UserService` handles business logic.
+
+```java
+// src/main/java/com/tangedco/spring/eb_billing_system/service/UserService.java
+package com.tangedco.spring.eb_billing_system.service;
+
+import com.tangedco.spring.eb_billing_system.entity.User;
+import com.tangedco.spring.eb_billing_system.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class UserService {
+
+    @Autowired
+    private UserRepository userRepository;
+
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    public Optional<User> getUserById(String userId) {
+        return userRepository.findByUserId(userId);
+    }
+
+    public String addUser(User user) {
+        if (userRepository.existsByAadharId(user.getAadharId()) || userRepository.existsByEmail(user.getEmail())) {
+            return "User with the same Aadhar ID or Email already exists.";
+        }
+        user.setUserId("USER" + String.format("%04d", userRepository.findMaxUserIdSuffix() + 1));
+        userRepository.save(user);
+        return "User added successfully with ID: " + user.getUserId();
+    }
+
+    public String updateUser(String userId, User updatedUser) {
+        Optional<User> existingUser = userRepository.findByUserId(userId);
+        if (existingUser.isPresent()) {
+            User user = existingUser.get();
+            user.setFirstName(updatedUser.getFirstName());
+            user.setLastName(updatedUser.getLastName());
+            user.setAadharId(updatedUser.getAadharId());
+            user.setPhoneNumber(updatedUser.getPhoneNumber());
+            user.setEmail(updatedUser.getEmail());
+            userRepository.save(user);
+            return "User updated successfully.";
+        }
+        return "User not found.";
+    }
+
+    public String deleteUser(String userId) {
+        if (userRepository.existsById(userId)) {
+            userRepository.deleteById(userId);
+            return "User deleted successfully.";
+        }
+        return "User not found.";
+    }
+}
+```
+
+---
+
+#### 4. **User Controller**
+
+The `UserController` handles HTTP requests.
+
+```java
+// src/main/java/com/tangedco/spring/eb_billing_system/controller/UserController.java
+package com.tangedco.spring.eb_billing_system.controller;
+
+import com.tangedco.spring.eb_billing_system.entity.User;
+import com.tangedco.spring.eb_billing_system.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/users")
+@CrossOrigin(origins = "*")
+public class UserController {
+
+    @Autowired
+    private UserService userService;
+
+    @GetMapping
+    public List<User> getAllUsers() {
+        return userService.getAllUsers();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<User> getUserById(@PathVariable String id) {
+        Optional<User> user = userService.getUserById(id);
+        return user.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/add")
+    public ResponseEntity<String> addUser(@RequestBody User user) {
+        String response = userService.addUser(user);
+        if (response.contains("already exists")) {
+            return ResponseEntity.badRequest().body(response);
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<String> updateUser(@PathVariable String id, @RequestBody User updatedUser) {
+        String response = userService.updateUser(id, updatedUser);
+        if (response.contains("not found")) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteUser(@PathVariable String id) {
+        String response = userService.deleteUser(id);
+        if (response.contains("not found")) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(response);
+    }
+}
+```
+
+---
+
+#### 5. **Application Configuration**
+
+Add application configuration for database connection.
+
+```yaml
+# src/main/resources/application.yml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/eb_billing_system
+    username: your_username
+    password: your_password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+```
+
+---
+
+#### 6. **Main Application**
+
+```java
+// src/main/java/com/tangedco/spring/eb_billing_system/EbBillingSystemApplication.java
+package com.tangedco.spring.eb_billing_system;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class EbBillingSystemApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(EbBillingSystemApplication.class, args);
+    }
+}
+```
+
+---
+
+### **Database Setup**
+
+Run the following SQL commands to create the database and table:
+
+```sql
+CREATE DATABASE eb_billing_system;
+
+USE eb_billing_system;
+
+CREATE TABLE users (
+    user_id VARCHAR(10) PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50),
+    aadhar_id VARCHAR(16) UNIQUE NOT NULL,
+    phone_number VARCHAR(15) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL
+);
+```
+
+---
+
+### **Testing the API**
+
+Run the Spring Boot application and test these endpoints using **Postman** or **Angular frontend**.
+
+| HTTP Method | Endpoint                | Description               | Request Body                          |
+|-------------|-------------------------|---------------------------|---------------------------------------|
+| `GET`       | `/api/users`            | Get all users             | None                                  |
+| `GET`       | `/api/users/{id}`       | Get user by ID            | None                                  |
+| `POST`      | `/api/users/add`        | Add a new user            | `{"firstName": "...", ...}`           |
+| `PUT`       | `/api/users/{id}`       | Update an existing user   | `{"firstName": "...", ...}`           |
+| `DELETE`    | `/api/users/{id}`       | Delete user by ID         | None                                  |
+
+Let me know if you encounter any issues!
