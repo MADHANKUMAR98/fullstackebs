@@ -1,0 +1,100 @@
+The `403 Forbidden` response you’re encountering usually indicates an issue with security configurations such as:
+
+1. **CORS Restrictions**: Misconfigured cross-origin requests.
+2. **Spring Security**: Default security settings may block unauthorized access to your endpoints.
+3. **CSRF Protection**: Spring Security enables CSRF protection by default, which may be causing issues for POST/PUT/DELETE requests.
+
+Here’s how you can resolve this issue:
+
+---
+
+### **Step 1: Configure CORS in Spring Boot**
+
+Add a global configuration to allow cross-origin requests.
+
+```java
+// src/main/java/com/tangedco/spring/eb_billing_system/config/WebConfig.java
+package com.tangedco.spring.eb_billing_system.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@Configuration
+public class WebConfig {
+
+    @Bean
+    public WebMvcConfigurer corsConfigurer() {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addCorsMappings(CorsRegistry registry) {
+                registry.addMapping("/**")
+                        .allowedOrigins("http://localhost:4200") // Update with your frontend origin
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                        .allowedHeaders("*")
+                        .allowCredentials(true);
+            }
+        };
+    }
+}
+```
+
+---
+
+### **Step 2: Configure Spring Security**
+
+If you’re using Spring Security, it may be blocking your API requests. You need to explicitly allow access to your APIs.
+
+Add a security configuration class to permit all requests (if you don’t need authentication for now).
+
+```java
+// src/main/java/com/tangedco/spring/eb_billing_system/config/SecurityConfig.java
+package com.tangedco.spring.eb_billing_system.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.SecurityFilterChain;
+
+@Configuration
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf().disable() // Disable CSRF for development
+            .authorizeHttpRequests(auth -> auth
+                .anyRequest().permitAll() // Allow all requests
+            )
+            .headers().frameOptions().disable(); // For H2 Console, if applicable
+        return http.build();
+    }
+}
+```
+
+---
+
+### **Step 3: CSRF Token Issue**
+
+Spring Security enables CSRF protection for POST, PUT, and DELETE requests. If you’re not including a CSRF token in your requests, they’ll fail. You can disable CSRF for development using the `SecurityConfig` as shown above.
+
+---
+
+### **Step 4: Test with Updated Configurations**
+
+1. Restart your Spring Boot application after applying the changes.
+2. Make sure the frontend application (`http://localhost:4200` for Angular) is accessing the correct backend API.
+3. If you're using `Postman`, make sure no extra headers like `Authorization` are being sent unless explicitly required.
+
+---
+
+### **Additional Debugging Steps**
+
+- **Check Logs**: Spring Boot logs often provide more details on why the `403` is occurring.
+- **Correct Endpoints**: Verify the API URL being called matches the expected path in your backend (e.g., `/api/users`).
+- **CORS Headers**: If the issue persists, check browser developer tools to confirm that CORS headers are being returned correctly.
+
+---
+
+Let me know if you still face issues, and I’ll assist further!
