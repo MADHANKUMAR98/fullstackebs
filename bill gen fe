@@ -748,3 +748,78 @@ CREATE DATABASE ebs;
 3. Use the front-end form to submit data. It will invoke the `/api/bills/generate` endpoint to generate bills.
 
 This architecture ensures a clean separation of concerns with a scalable design. Let me know if you need enhancements or further explanations!
+
+
+
+
+
+
+
+
+To remove authorization for the endpoint, you can adjust the security configurations of your Spring Boot application. By default, Spring Security enforces authorization if it is enabled in your application. Here's a step-by-step guide to remove authorization from specific endpoints like `/connections/household`:
+
+### 1. **Check Security Configuration**
+   Locate your `SecurityConfig` class or equivalent Spring Security configuration. This is typically annotated with `@EnableWebSecurity`.
+
+### 2. **Permit All Requests for the Specific Endpoint**
+   You can explicitly allow unauthenticated access to the endpoint in your `HttpSecurity` configuration by using `.permitAll()`.
+
+Here’s an example:
+
+```java
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter {
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http.csrf().disable() // Disable CSRF if necessary for testing (not recommended for production).
+            .authorizeRequests()
+            .antMatchers("/connections/household", "/connections/commercial").permitAll() // Allow unauthenticated access to these endpoints.
+            .anyRequest().authenticated(); // Secure all other endpoints.
+    }
+}
+```
+
+### 3. **Disable Security Entirely (Optional for Development Only)**
+   If you want to disable all security for your application during testing or development, you can configure the `HttpSecurity` to allow everything.
+
+```java
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter {
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http.csrf().disable()
+            .authorizeRequests().anyRequest().permitAll(); // Disable security for all endpoints.
+    }
+}
+```
+
+> **Note:** This is not recommended for production as it makes your application vulnerable.
+
+---
+
+### 4. **Verify Removal of Authorization**
+After making the changes, restart your Spring Boot application and test the endpoint:
+
+- Using tools like Postman, cURL, or a browser, make a request to `http://localhost:8888/connections/household`.
+- Ensure that the server responds without requiring authentication.
+
+---
+
+### 5. **Optional: Log Unauthorized Access Attempts**
+If you’re debugging authorization, consider logging unauthorized access attempts by configuring your logger in `application.properties` or `application.yml`:
+
+```properties
+logging.level.org.springframework.security=DEBUG
+```
+
+This can help diagnose issues if authorization is incorrectly applied.
+
+
