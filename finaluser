@@ -1,0 +1,553 @@
+Here’s the complete code for a User Management frontend, including functionalities for adding, editing, listing, and backend connectivity for the mentioned `User` data structure.
+
+---
+
+### **1. Angular Component Code (TypeScript)**
+
+```typescript
+import { Component, OnInit } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { NgForm } from '@angular/forms';
+
+export interface User {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  aadharId: string;
+  phoneNumber: string;
+  email: string;
+}
+
+@Component({
+  selector: 'app-user-management',
+  templateUrl: './user-management.component.html',
+  styleUrls: ['./user-management.component.css']
+})
+export class UserManagementComponent implements OnInit {
+  users: User[] = [];
+  selectedUser: User | null = null;
+  userForm: User = {
+    userId: '',
+    firstName: '',
+    lastName: '',
+    aadharId: '',
+    phoneNumber: '',
+    email: ''
+  };
+  apiBaseUrl = 'http://localhost:8080/api/users'; // Backend API endpoint
+
+  constructor(private http: HttpClient) {}
+
+  ngOnInit(): void {
+    this.getUsers();
+  }
+
+  // Fetch all users
+  getUsers(): void {
+    this.http.get<User[]>(`${this.apiBaseUrl}`).subscribe(
+      (data) => {
+        this.users = data;
+      },
+      (error) => {
+        console.error('Error fetching users:', error);
+      }
+    );
+  }
+
+  // Save a new user or update an existing user
+  saveUser(form: NgForm): void {
+    if (this.userForm.userId) {
+      // Update existing user
+      this.http.put(`${this.apiBaseUrl}/${this.userForm.userId}`, this.userForm).subscribe(
+        () => {
+          this.getUsers();
+          this.resetForm(form);
+        },
+        (error) => {
+          console.error('Error updating user:', error);
+        }
+      );
+    } else {
+      // Add new user
+      this.http.post(`${this.apiBaseUrl}`, this.userForm).subscribe(
+        () => {
+          this.getUsers();
+          this.resetForm(form);
+        },
+        (error) => {
+          console.error('Error adding user:', error);
+        }
+      );
+    }
+  }
+
+  // Edit a user (populate form with user details)
+  editUser(user: User): void {
+    this.selectedUser = user;
+    this.userForm = { ...user };
+  }
+
+  // Delete a user
+  deleteUser(userId: string): void {
+    if (confirm('Are you sure you want to delete this user?')) {
+      this.http.delete(`${this.apiBaseUrl}/${userId}`).subscribe(
+        () => {
+          this.getUsers();
+        },
+        (error) => {
+          console.error('Error deleting user:', error);
+        }
+      );
+    }
+  }
+
+  // Reset the form
+  resetForm(form: NgForm): void {
+    this.selectedUser = null;
+    this.userForm = {
+      userId: '',
+      firstName: '',
+      lastName: '',
+      aadharId: '',
+      phoneNumber: '',
+      email: ''
+    };
+    form.resetForm();
+  }
+}
+```
+
+---
+
+### **2. Angular Template Code (HTML)**
+
+```html
+<div class="container mt-5">
+  <h2 class="text-center">User Management</h2>
+
+  <!-- User Form -->
+  <div class="card p-4 mb-4">
+    <form #userForm="ngForm" (ngSubmit)="saveUser(userForm)">
+      <div class="row mb-3">
+        <div class="col-md-4">
+          <label for="firstName" class="form-label">First Name</label>
+          <input
+            type="text"
+            class="form-control"
+            id="firstName"
+            [(ngModel)]="userForm.firstName"
+            name="firstName"
+            required
+          />
+        </div>
+        <div class="col-md-4">
+          <label for="lastName" class="form-label">Last Name</label>
+          <input
+            type="text"
+            class="form-control"
+            id="lastName"
+            [(ngModel)]="userForm.lastName"
+            name="lastName"
+            required
+          />
+        </div>
+        <div class="col-md-4">
+          <label for="email" class="form-label">Email</label>
+          <input
+            type="email"
+            class="form-control"
+            id="email"
+            [(ngModel)]="userForm.email"
+            name="email"
+            required
+          />
+        </div>
+      </div>
+      <div class="row mb-3">
+        <div class="col-md-4">
+          <label for="aadharId" class="form-label">Aadhar ID</label>
+          <input
+            type="text"
+            class="form-control"
+            id="aadharId"
+            [(ngModel)]="userForm.aadharId"
+            name="aadharId"
+            required
+          />
+        </div>
+        <div class="col-md-4">
+          <label for="phoneNumber" class="form-label">Phone Number</label>
+          <input
+            type="text"
+            class="form-control"
+            id="phoneNumber"
+            [(ngModel)]="userForm.phoneNumber"
+            name="phoneNumber"
+            required
+          />
+        </div>
+      </div>
+      <div class="d-flex justify-content-between">
+        <button type="submit" class="btn btn-primary">Save User</button>
+        <button type="button" class="btn btn-secondary" (click)="resetForm(userForm)">Reset</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- User List -->
+  <div class="card p-4">
+    <h3 class="mb-3">User List</h3>
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>User ID</th>
+          <th>First Name</th>
+          <th>Last Name</th>
+          <th>Email</th>
+          <th>Aadhar ID</th>
+          <th>Phone Number</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let user of users">
+          <td>{{ user.userId }}</td>
+          <td>{{ user.firstName }}</td>
+          <td>{{ user.lastName }}</td>
+          <td>{{ user.email }}</td>
+          <td>{{ user.aadharId }}</td>
+          <td>{{ user.phoneNumber }}</td>
+          <td>
+            <button class="btn btn-warning btn-sm" (click)="editUser(user)">Edit</button>
+            <button class="btn btn-danger btn-sm" (click)="deleteUser(user.userId)">Delete</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+```
+
+---
+
+### **3. Angular Styling Code (CSS)**
+
+```css
+.card {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.table th {
+  background-color: #007bff;
+  color: white;
+}
+
+.table td,
+.table th {
+  text-align: center;
+  vertical-align: middle;
+}
+```
+
+---
+
+### **4. Backend API Integration**
+
+Ensure the backend API (`http://localhost:8080/api/users`) supports the following endpoints:
+- `GET /api/users` - Fetch all users.
+- `POST /api/users` - Add a new user.
+- `PUT /api/users/:userId` - Update a user.
+- `DELETE /api/users/:userId` - Delete a user.
+
+---
+
+### **5. Module Configuration**
+
+Import necessary modules in `app.module.ts`:
+```typescript
+import { FormsModule } from '@angular/forms';
+import { HttpClientModule } from '@angular/common/http';
+
+@NgModule({
+  declarations: [
+    UserManagementComponent
+  ],
+  imports: [
+    FormsModule,
+    HttpClientModule
+  ],
+  bootstrap: [UserManagementComponent]
+})
+export class AppModule { }
+```
+
+This complete setup will provide full CRUD functionality for managing users with backend connectivity.
+
+
+Here’s the updated **Angular User Management** code with **modern and visually appealing styling**. The design is responsive, elegant, and uses Bootstrap and custom CSS for enhanced UI/UX.
+
+---
+
+### **1. Angular Component Code (TypeScript)**
+
+No changes are needed in the component logic. You can use the same TypeScript code provided earlier.
+
+---
+
+### **2. Angular Template Code (HTML)**
+
+Here’s the updated HTML with improved structure and enhanced styling:
+
+```html
+<div class="container mt-5">
+  <div class="text-center mb-5">
+    <h1 class="title">User Management System</h1>
+    <p class="subtitle">Effortlessly manage your users with style and simplicity.</p>
+  </div>
+
+  <!-- User Form -->
+  <div class="card shadow p-4 mb-5 bg-light form-card">
+    <h3 class="card-title text-center mb-4">Add or Edit User</h3>
+    <form #userForm="ngForm" (ngSubmit)="saveUser(userForm)">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label for="firstName" class="form-label">First Name</label>
+          <input
+            type="text"
+            class="form-control"
+            id="firstName"
+            [(ngModel)]="userForm.firstName"
+            name="firstName"
+            placeholder="Enter first name"
+            required
+          />
+        </div>
+        <div class="col-md-6">
+          <label for="lastName" class="form-label">Last Name</label>
+          <input
+            type="text"
+            class="form-control"
+            id="lastName"
+            [(ngModel)]="userForm.lastName"
+            name="lastName"
+            placeholder="Enter last name"
+            required
+          />
+        </div>
+        <div class="col-md-6">
+          <label for="email" class="form-label">Email</label>
+          <input
+            type="email"
+            class="form-control"
+            id="email"
+            [(ngModel)]="userForm.email"
+            name="email"
+            placeholder="Enter email address"
+            required
+          />
+        </div>
+        <div class="col-md-6">
+          <label for="aadharId" class="form-label">Aadhar ID</label>
+          <input
+            type="text"
+            class="form-control"
+            id="aadharId"
+            [(ngModel)]="userForm.aadharId"
+            name="aadharId"
+            placeholder="Enter Aadhar ID"
+            required
+          />
+        </div>
+        <div class="col-md-6">
+          <label for="phoneNumber" class="form-label">Phone Number</label>
+          <input
+            type="text"
+            class="form-control"
+            id="phoneNumber"
+            [(ngModel)]="userForm.phoneNumber"
+            name="phoneNumber"
+            placeholder="Enter phone number"
+            required
+          />
+        </div>
+      </div>
+      <div class="d-flex justify-content-between mt-4">
+        <button type="submit" class="btn btn-primary btn-lg">Save User</button>
+        <button type="button" class="btn btn-secondary btn-lg" (click)="resetForm(userForm)">Reset</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- User List -->
+  <div class="card shadow p-4 bg-light">
+    <h3 class="card-title text-center mb-4">User List</h3>
+    <table class="table table-hover table-responsive">
+      <thead class="table-dark">
+        <tr>
+          <th>User ID</th>
+          <th>First Name</th>
+          <th>Last Name</th>
+          <th>Email</th>
+          <th>Aadhar ID</th>
+          <th>Phone Number</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let user of users" class="table-light">
+          <td>{{ user.userId }}</td>
+          <td>{{ user.firstName }}</td>
+          <td>{{ user.lastName }}</td>
+          <td>{{ user.email }}</td>
+          <td>{{ user.aadharId }}</td>
+          <td>{{ user.phoneNumber }}</td>
+          <td>
+            <button
+              class="btn btn-warning btn-sm"
+              (click)="editUser(user)"
+            >
+              Edit
+            </button>
+            <button
+              class="btn btn-danger btn-sm"
+              (click)="deleteUser(user.userId)"
+            >
+              Delete
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+```
+
+---
+
+### **3. CSS Code (Styling)**
+
+Here’s the **custom CSS** for improved visuals:
+
+```css
+/* General Styles */
+body {
+  background-color: #f8f9fa;
+  font-family: 'Roboto', sans-serif;
+}
+
+h1.title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #343a40;
+}
+
+p.subtitle {
+  font-size: 1.2rem;
+  color: #6c757d;
+}
+
+.card {
+  border-radius: 12px;
+}
+
+.form-card {
+  background: linear-gradient(to bottom right, #ffffff, #e9ecef);
+}
+
+.table th {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.table td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* Buttons */
+.btn-primary {
+  background-color: #007bff;
+  border-color: #007bff;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+  border-color: #0056b3;
+}
+
+.btn-warning {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  transition: all 0.3s ease;
+}
+
+.btn-warning:hover {
+  background-color: #e0a800;
+  border-color: #e0a800;
+}
+
+.btn-danger {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  transition: all 0.3s ease;
+}
+
+.btn-danger:hover {
+  background-color: #c82333;
+  border-color: #c82333;
+}
+
+/* Table */
+.table-hover tbody tr:hover {
+  background-color: #f1f3f5;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  h1.title {
+    font-size: 1.8rem;
+  }
+
+  p.subtitle {
+    font-size: 1rem;
+  }
+
+  .btn {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+}
+```
+
+---
+
+### **4. Updated Module Configuration**
+
+In `angular.json`, add **Bootstrap** for responsive styling:
+
+#### **Install Bootstrap**
+```bash
+npm install bootstrap
+```
+
+#### **Update `angular.json`**
+Add the Bootstrap CSS file:
+```json
+"styles": [
+  "src/styles.css",
+  "node_modules/bootstrap/dist/css/bootstrap.min.css"
+],
+"scripts": []
+```
+
+---
+
+### **5. Final Notes**
+
+- This layout uses **Bootstrap 5** for responsiveness and modern design.
+- The custom CSS adds flair, hover effects, gradients, and smooth transitions.
+- The buttons are color-coded with modern hover effects.
+- The design is **mobile-friendly** and scales well across devices.
+
+By combining Bootstrap with custom CSS, the app looks **professional and polished**, while maintaining functional excellence. Let me know if you'd like further tweaks!
