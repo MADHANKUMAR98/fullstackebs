@@ -320,3 +320,26 @@ export class CustomerComponent implements OnInit {
   - Customer Component for viewing and paying bills.
 
 Let me know if you need further clarification!
+
+
+package com.tangedco.spring.eb_billing_system.repository;
+
+import com.tangedco.spring.eb_billing_system.entity.Bill;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface BillRepository extends JpaRepository<Bill, Long> {
+    
+    // Find all bills associated with a specific customer ID
+    List<Bill> findByCustomerId(String customerId);
+
+    // Find all unpaid bills for a specific customer
+    List<Bill> findByCustomerIdAndStatus(String customerId, String status);
+
+    // Retrieve all bills ordered by due date
+    List<Bill> findAllByOrderByDueDateAsc();
+}
+
