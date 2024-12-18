@@ -98,3 +98,157 @@ Spring Security enables CSRF protection for POST, PUT, and DELETE requests. If y
 ---
 
 Let me know if you still face issues, and I’ll assist further!
+
+
+
+
+
+
+
+
+
+If you're still receiving a `403 Forbidden` error after implementing the above changes, let's go through additional steps to debug and fix the issue.
+
+---
+
+### **Step 1: Verify API URL**
+Ensure the API endpoint in your Angular frontend matches the backend path. For example:
+- Backend URL: `http://localhost:8080/api/users`
+- Frontend URL: Ensure you're calling `http://localhost:8080/api/users` in your Angular service.
+
+---
+
+### **Step 2: Debug CORS Issues**
+
+1. **Inspect Network Tab (Browser DevTools)**:
+   - Open the "Network" tab in your browser developer tools.
+   - Look at the failed request and confirm if it is a CORS-related issue (check "Access-Control-Allow-Origin" header).
+
+2. **Verify Backend CORS Headers**:
+   Add debugging statements to check if CORS is configured correctly. Modify the `WebConfig` file:
+
+   ```java
+   registry.addMapping("/**")
+           .allowedOrigins("*") // For testing purposes
+           .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+           .allowedHeaders("*")
+           .exposedHeaders("Access-Control-Allow-Origin", "Access-Control-Allow-Headers")
+           .allowCredentials(true);
+   ```
+
+   Ensure you're allowing the correct `Origin` from the frontend.
+
+---
+
+### **Step 3: Spring Security Fix for 403**
+
+Sometimes `403 Forbidden` is caused by Spring Security’s built-in headers (`x-frame-options`, `x-content-type-options`, etc.). You can disable them temporarily for testing:
+
+#### Updated `SecurityConfig.java`:
+```java
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.SecurityFilterChain;
+
+@Configuration
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf().disable() // Disable CSRF for development purposes
+            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+            .headers(headers -> headers
+                .frameOptions().disable() // Disable frame options for testing
+                .xssProtection().disable() // Temporarily disable XSS protection
+                .contentTypeOptions().disable() // Temporarily disable content type options
+            );
+        return http.build();
+    }
+}
+```
+
+---
+
+### **Step 4: Confirm Server Port and Network Settings**
+
+- Ensure your backend Spring Boot application is running on `http://localhost:8080`.
+- If you're using a different port (e.g., `8081`), update your Angular API service to match.
+
+---
+
+### **Step 5: Angular HTTP Interceptor**
+
+Angular might not be sending the correct headers in its API calls. Create an HTTP Interceptor to ensure all headers are correctly sent.
+
+#### Angular `AuthInterceptor` (for Debugging):
+```typescript
+import { Injectable } from '@angular/core';
+import { HttpRequest, HttpHandler, HttpEvent, HttpInterceptor } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+@Injectable()
+export class AuthInterceptor implements HttpInterceptor {
+  intercept(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
+    const clonedRequest = request.clone({
+      headers: request.headers.set('Content-Type', 'application/json'),
+    });
+
+    console.log('Request Interceptor:', clonedRequest);
+    return next.handle(clonedRequest);
+  }
+}
+```
+
+Register this interceptor in `app.module.ts`:
+```typescript
+import { HTTP_INTERCEPTORS } from '@angular/common/http';
+import { AuthInterceptor } from './auth.interceptor';
+
+@NgModule({
+  providers: [
+    { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
+  ],
+})
+export class AppModule {}
+```
+
+---
+
+### **Step 6: Debug Logging**
+
+Add logging in Spring Boot to check incoming requests.
+
+#### Enable Debug Logs in `application.properties`:
+```properties
+logging.level.org.springframework.web=DEBUG
+logging.level.org.springframework.security=DEBUG
+```
+
+Restart the backend and check logs to see if the request is reaching the server.
+
+---
+
+### **Step 7: Test with Postman**
+
+- Test the API using **Postman** or **curl** to isolate whether the issue is on the backend or frontend.
+  ```bash
+  curl -X GET http://localhost:8080/api/users
+  ```
+- If Postman works but Angular fails, the issue is likely with CORS or frontend headers.
+
+---
+
+### **Step 8: Remove Other Middleware Conflicts**
+
+Disable all additional middleware (e.g., Firewalls, Proxies, VPNs) that might interfere with the communication between Angular and Spring Boot.
+
+---
+
+If none of these steps solve the issue, please share:
+1. Backend logs after trying a request.
+2. The exact API URL being used in the Angular service.
+3. Your Angular `HttpClient` service and the request headers. 
+
+Let’s troubleshoot further!
