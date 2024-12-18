@@ -301,3 +301,185 @@ Run the Spring Boot application and test these endpoints using **Postman** or **
 | `DELETE`    | `/api/users/{id}`       | Delete user by ID         | None                                  |
 
 Let me know if you encounter any issues!
+
+
+
+If you'd like a clear separation of interface and implementation for your **service layer**, the typical format includes defining a `UserService` interface and implementing it in `UserServiceImpl`. This approach makes the service layer extensible and allows for easy testing or future updates.
+
+Here’s how you can structure your **UserService** and **UserServiceImpl** classes:
+
+---
+
+### **1. UserService Interface**
+
+```java
+// src/main/java/com/tangedco/spring/eb_billing_system/service/UserService.java
+package com.tangedco.spring.eb_billing_system.service;
+
+import com.tangedco.spring.eb_billing_system.entity.User;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface UserService {
+
+    List<User> getAllUsers();
+
+    Optional<User> getUserById(String userId);
+
+    String addUser(User user);
+
+    String updateUser(String userId, User updatedUser);
+
+    String deleteUser(String userId);
+}
+```
+
+---
+
+### **2. UserServiceImpl Class**
+
+The `UserServiceImpl` class implements the `UserService` interface and provides the actual logic.
+
+```java
+// src/main/java/com/tangedco/spring/eb_billing_system/service/impl/UserServiceImpl.java
+package com.tangedco.spring.eb_billing_system.service.impl;
+
+import com.tangedco.spring.eb_billing_system.entity.User;
+import com.tangedco.spring.eb_billing_system.repository.UserRepository;
+import com.tangedco.spring.eb_billing_system.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class UserServiceImpl implements UserService {
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Override
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    @Override
+    public Optional<User> getUserById(String userId) {
+        return userRepository.findByUserId(userId);
+    }
+
+    @Override
+    public String addUser(User user) {
+        if (userRepository.existsByAadharId(user.getAadharId()) || userRepository.existsByEmail(user.getEmail())) {
+            return "User with the same Aadhar ID or Email already exists.";
+        }
+        user.setUserId("USER" + String.format("%04d", userRepository.findMaxUserIdSuffix() + 1));
+        userRepository.save(user);
+        return "User added successfully with ID: " + user.getUserId();
+    }
+
+    @Override
+    public String updateUser(String userId, User updatedUser) {
+        Optional<User> existingUser = userRepository.findByUserId(userId);
+        if (existingUser.isPresent()) {
+            User user = existingUser.get();
+            user.setFirstName(updatedUser.getFirstName());
+            user.setLastName(updatedUser.getLastName());
+            user.setAadharId(updatedUser.getAadharId());
+            user.setPhoneNumber(updatedUser.getPhoneNumber());
+            user.setEmail(updatedUser.getEmail());
+            userRepository.save(user);
+            return "User updated successfully.";
+        }
+        return "User not found.";
+    }
+
+    @Override
+    public String deleteUser(String userId) {
+        if (userRepository.existsById(userId)) {
+            userRepository.deleteById(userId);
+            return "User deleted successfully.";
+        }
+        return "User not found.";
+    }
+}
+```
+
+---
+
+### **3. Updating the Controller**
+
+Now, inject the `UserService` interface into the `UserController` to ensure the implementation is loosely coupled.
+
+```java
+// src/main/java/com/tangedco/spring/eb_billing_system/controller/UserController.java
+package com.tangedco.spring.eb_billing_system.controller;
+
+import com.tangedco.spring.eb_billing_system.entity.User;
+import com.tangedco.spring.eb_billing_system.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/users")
+@CrossOrigin(origins = "*")
+public class UserController {
+
+    @Autowired
+    private UserService userService; // Interface injected, implementation hidden
+
+    @GetMapping
+    public List<User> getAllUsers() {
+        return userService.getAllUsers();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<User> getUserById(@PathVariable String id) {
+        Optional<User> user = userService.getUserById(id);
+        return user.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/add")
+    public ResponseEntity<String> addUser(@RequestBody User user) {
+        String response = userService.addUser(user);
+        if (response.contains("already exists")) {
+            return ResponseEntity.badRequest().body(response);
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<String> updateUser(@PathVariable String id, @RequestBody User updatedUser) {
+        String response = userService.updateUser(id, updatedUser);
+        if (response.contains("not found")) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteUser(@PathVariable String id) {
+        String response = userService.deleteUser(id);
+        if (response.contains("not found")) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(response);
+    }
+}
+```
+
+---
+
+### **Advantages of Using Interface and Implementation**
+
+1. **Loose Coupling**: The controller interacts with the service through the interface, not tied to a specific implementation.
+2. **Testability**: You can easily mock the `UserService` interface for unit testing.
+3. **Scalability**: Adding new implementations (e.g., caching, different databases) becomes easier.
+
+Let me know if you'd like additional configurations or help debugging!
