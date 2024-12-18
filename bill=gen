@@ -1,0 +1,322 @@
+Here’s a solution to implement a **bill generation and payment workflow** in a **Spring Boot backend** and **Angular frontend**. The flow includes the following steps:
+
+1. **Admin Use Case**:  
+   - Admin can generate a bill for a particular customer using their `customerId`.
+
+2. **Customer Use Case**:  
+   - Customer logs in to their account to view the generated bill.  
+   - Customer makes the payment for the bill.
+
+---
+
+### Backend Code (Spring Boot)
+
+#### 1. **Entity for Bill**
+```java
+package com.tangedco.spring.eb_billing_system.entity;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "EBS_Bills")
+@Getter
+@Setter
+public class Bill {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne
+    @JoinColumn(name = "customer_id", nullable = false)
+    private User customer;
+
+    @Column(name = "amount", nullable = false)
+    private Double amount;
+
+    @Column(name = "due_date", nullable = false)
+    private LocalDateTime dueDate;
+
+    @Column(name = "status", nullable = false)
+    private String status; // "PENDING", "PAID"
+
+    @Column(name = "timestamp")
+    private LocalDateTime timestamp;
+
+    @Column(name = "payment_method")
+    private String paymentMethod;
+}
+```
+
+---
+
+#### 2. **DTO for Bill Generation**
+```java
+package com.tangedco.spring.eb_billing_system.dto;
+
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
+public class BillRequest {
+    private String customerId;
+    private Double amount;
+    private String dueDate; // Format: YYYY-MM-DD
+}
+```
+
+---
+
+#### 3. **Bill Service**
+```java
+package com.tangedco.spring.eb_billing_system.service;
+
+import com.tangedco.spring.eb_billing_system.dto.BillRequest;
+import com.tangedco.spring.eb_billing_system.entity.Bill;
+import com.tangedco.spring.eb_billing_system.entity.User;
+import com.tangedco.spring.eb_billing_system.repository.BillRepository;
+import com.tangedco.spring.eb_billing_system.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+@Service
+public class BillService {
+
+    @Autowired
+    private BillRepository billRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    public Bill generateBill(BillRequest request) {
+        User customer = userRepository.findById(request.getCustomerId())
+                .orElseThrow(() -> new RuntimeException("Customer not found"));
+
+        Bill bill = new Bill();
+        bill.setCustomer(customer);
+        bill.setAmount(request.getAmount());
+        bill.setDueDate(LocalDate.parse(request.getDueDate()).atStartOfDay());
+        bill.setStatus("PENDING");
+        bill.setTimestamp(LocalDateTime.now());
+
+        return billRepository.save(bill);
+    }
+
+    public Bill makePayment(Long billId, String paymentMethod) {
+        Bill bill = billRepository.findById(billId)
+                .orElseThrow(() -> new RuntimeException("Bill not found"));
+
+        if ("PENDING".equalsIgnoreCase(bill.getStatus())) {
+            bill.setStatus("PAID");
+            bill.setPaymentMethod(paymentMethod);
+            bill.setTimestamp(LocalDateTime.now());
+        } else {
+            throw new RuntimeException("Bill is already paid");
+        }
+
+        return billRepository.save(bill);
+    }
+}
+```
+
+---
+
+#### 4. **Controller**
+```java
+package com.tangedco.spring.eb_billing_system.controller;
+
+import com.tangedco.spring.eb_billing_system.dto.BillRequest;
+import com.tangedco.spring.eb_billing_system.entity.Bill;
+import com.tangedco.spring.eb_billing_system.service.BillService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/bills")
+public class BillController {
+
+    @Autowired
+    private BillService billService;
+
+    @PostMapping("/generate")
+    public ResponseEntity<Bill> generateBill(@RequestBody BillRequest request) {
+        Bill bill = billService.generateBill(request);
+        return ResponseEntity.ok(bill);
+    }
+
+    @PostMapping("/pay/{billId}")
+    public ResponseEntity<Bill> makePayment(
+            @PathVariable Long billId,
+            @RequestParam String paymentMethod) {
+        Bill bill = billService.makePayment(billId, paymentMethod);
+        return ResponseEntity.ok(bill);
+    }
+}
+```
+
+---
+
+### Frontend Code (Angular)
+
+#### 1. **Angular Services**
+
+##### a) **Bill Service**
+```typescript
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class BillService {
+  private baseUrl = 'http://localhost:8080/bills';
+
+  constructor(private http: HttpClient) {}
+
+  generateBill(data: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/generate`, data);
+  }
+
+  payBill(billId: number, paymentMethod: string): Observable<any> {
+    return this.http.post(`${this.baseUrl}/pay/${billId}`, { paymentMethod });
+  }
+
+  getBillsForCustomer(customerId: string): Observable<any> {
+    return this.http.get(`${this.baseUrl}?customerId=${customerId}`);
+  }
+}
+```
+
+---
+
+#### 2. **Components**
+
+##### a) **Admin Component**
+```typescript
+import { Component } from '@angular/core';
+import { BillService } from '../services/bill.service';
+
+@Component({
+  selector: 'app-admin',
+  templateUrl: './admin.component.html',
+})
+export class AdminComponent {
+  billRequest = {
+    customerId: '',
+    amount: 0,
+    dueDate: '',
+  };
+
+  constructor(private billService: BillService) {}
+
+  generateBill() {
+    this.billService.generateBill(this.billRequest).subscribe((response) => {
+      alert('Bill generated successfully!');
+    });
+  }
+}
+```
+
+**HTML:**
+```html
+<div>
+  <h2>Generate Bill</h2>
+  <form (ngSubmit)="generateBill()">
+    <label>Customer ID:</label>
+    <input type="text" [(ngModel)]="billRequest.customerId" name="customerId" />
+    <label>Amount:</label>
+    <input type="number" [(ngModel)]="billRequest.amount" name="amount" />
+    <label>Due Date:</label>
+    <input type="date" [(ngModel)]="billRequest.dueDate" name="dueDate" />
+    <button type="submit">Generate Bill</button>
+  </form>
+</div>
+```
+
+---
+
+##### b) **Customer Component**
+```typescript
+import { Component, OnInit } from '@angular/core';
+import { BillService } from '../services/bill.service';
+
+@Component({
+  selector: 'app-customer',
+  templateUrl: './customer.component.html',
+})
+export class CustomerComponent implements OnInit {
+  bills: any[] = [];
+  paymentMethod = '';
+
+  constructor(private billService: BillService) {}
+
+  ngOnInit() {
+    this.fetchBills();
+  }
+
+  fetchBills() {
+    const customerId = localStorage.getItem('customerId'); // Assume customer is logged in
+    this.billService
+      .getBillsForCustomer(customerId!)
+      .subscribe((response) => (this.bills = response));
+  }
+
+  payBill(billId: number) {
+    this.billService.payBill(billId, this.paymentMethod).subscribe(() => {
+      alert('Payment successful!');
+      this.fetchBills();
+    });
+  }
+}
+```
+
+**HTML:**
+```html
+<div>
+  <h2>Your Bills</h2>
+  <table>
+    <tr>
+      <th>Bill ID</th>
+      <th>Amount</th>
+      <th>Status</th>
+      <th>Due Date</th>
+      <th>Action</th>
+    </tr>
+    <tr *ngFor="let bill of bills">
+      <td>{{ bill.id }}</td>
+      <td>{{ bill.amount }}</td>
+      <td>{{ bill.status }}</td>
+      <td>{{ bill.dueDate }}</td>
+      <td>
+        <input
+          type="text"
+          placeholder="Payment Method"
+          [(ngModel)]="paymentMethod"
+        />
+        <button (click)="payBill(bill.id)">Pay</button>
+      </td>
+    </tr>
+  </table>
+</div>
+```
+
+---
+
+### Summary of Key Components:
+- **Backend**:
+  - `Bill` Entity
+  - `BillController`
+  - `BillService`
+- **Frontend**:
+  - Admin Component for generating bills.
+  - Customer Component for viewing and paying bills.
+
+Let me know if you need further clarification!
