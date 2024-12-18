@@ -146,3 +146,35 @@ BEGIN
     END LOOP;
 END;
 /
+
+
+
+CREATE SEQUENCE user_seq START WITH 1 INCREMENT BY 1;
+
+BEGIN
+  FOR i IN 1..12 LOOP
+    INSERT INTO your_table_name (user_id, category, bill_date, amount, status)
+    VALUES (
+      'USER' || LPAD(user_seq.NEXTVAL, 3, '0'), -- Automatically generate unique USER001, USER002, ...
+      'household',
+      TO_DATE('2023-' || LPAD(i, 2, '0') || '-01 00:00:00', 'YYYY-MM-DD HH24:MI:SS'),
+      CASE i
+        WHEN 1 THEN 100
+        WHEN 2 THEN 150
+        WHEN 3 THEN 130
+        WHEN 4 THEN 120
+        WHEN 5 THEN 160
+        WHEN 6 THEN 110
+        WHEN 7 THEN 140
+        WHEN 8 THEN 150
+        WHEN 9 THEN 170
+        WHEN 10 THEN 160
+        WHEN 11 THEN 180
+        WHEN 12 THEN 190
+      END,
+      'not_paid'
+    );
+  END LOOP;
+END;
+/
+
