@@ -1,0 +1,237 @@
+Here's the updated code that includes **form validation** for the Admin Bill Management and Customer Payment components in your Angular application.
+
+---
+
+### **1. Updated Admin Bill Management Component**
+
+**HTML: `admin-bill-management.component.html`**
+
+```html
+<div class="container my-5">
+  <h2 class="text-center mb-4 text-primary">Admin Bill Management</h2>
+
+  <form
+    [formGroup]="billForm"
+    (ngSubmit)="generateBill()"
+    class="p-4 border rounded shadow-sm"
+    novalidate
+  >
+    <!-- Customer ID -->
+    <div class="mb-3">
+      <label for="customerId" class="form-label">Customer ID</label>
+      <input
+        type="text"
+        id="customerId"
+        formControlName="customerId"
+        class="form-control"
+        placeholder="Enter Customer ID"
+      />
+      <div *ngIf="billForm.get('customerId')?.invalid && billForm.get('customerId')?.touched" class="text-danger">
+        Customer ID is required.
+      </div>
+    </div>
+
+    <!-- Bill Amount -->
+    <div class="mb-3">
+      <label for="amount" class="form-label">Bill Amount</label>
+      <input
+        type="number"
+        id="amount"
+        formControlName="amount"
+        class="form-control"
+        placeholder="Enter Amount"
+      />
+      <div *ngIf="billForm.get('amount')?.invalid && billForm.get('amount')?.touched" class="text-danger">
+        Please enter a valid amount (greater than 0).
+      </div>
+    </div>
+
+    <!-- Due Date -->
+    <div class="mb-3">
+      <label for="dueDate" class="form-label">Due Date</label>
+      <input
+        type="date"
+        id="dueDate"
+        formControlName="dueDate"
+        class="form-control"
+      />
+      <div *ngIf="billForm.get('dueDate')?.invalid && billForm.get('dueDate')?.touched" class="text-danger">
+        Due Date is required.
+      </div>
+    </div>
+
+    <!-- Submit Button -->
+    <button
+      type="submit"
+      class="btn btn-primary w-100"
+      [disabled]="billForm.invalid"
+    >
+      Generate Bill
+    </button>
+  </form>
+</div>
+```
+
+**TS: `admin-bill-management.component.ts`**
+
+```typescript
+import { Component } from '@angular/core';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+
+@Component({
+  selector: 'app-admin-bill-management',
+  templateUrl: './admin-bill-management.component.html',
+  styleUrls: ['./admin-bill-management.component.scss'],
+})
+export class AdminBillManagementComponent {
+  billForm: FormGroup;
+
+  constructor(private fb: FormBuilder) {
+    this.billForm = this.fb.group({
+      customerId: ['', Validators.required],
+      amount: [null, [Validators.required, Validators.min(1)]],
+      dueDate: ['', Validators.required],
+    });
+  }
+
+  generateBill() {
+    if (this.billForm.valid) {
+      const { customerId, amount, dueDate } = this.billForm.value;
+      alert(`Bill generated for Customer ID: ${customerId}, Amount: ${amount}, Due Date: ${dueDate}`);
+      this.billForm.reset();
+    }
+  }
+}
+```
+
+---
+
+### **2. Updated Customer Payment Component**
+
+**HTML: `customer-payment.component.html`**
+
+```html
+<div class="container my-5">
+  <h2 class="text-center mb-4 text-success">Customer Payment Portal</h2>
+
+  <div class="card p-4 shadow-sm">
+    <div class="card-header bg-success text-white">
+      <h5>Pending Bills</h5>
+    </div>
+    <div class="card-body">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>Bill ID</th>
+            <th>Amount</th>
+            <th>Due Date</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let bill of pendingBills">
+            <td>{{ bill.id }}</td>
+            <td>{{ bill.amount | currency }}</td>
+            <td>{{ bill.dueDate | date: 'shortDate' }}</td>
+            <td>
+              <span class="badge bg-warning" *ngIf="bill.status === 'PENDING'">
+                {{ bill.status }}
+              </span>
+              <span class="badge bg-success" *ngIf="bill.status === 'PAID'">
+                {{ bill.status }}
+              </span>
+            </td>
+            <td>
+              <button
+                class="btn btn-primary btn-sm"
+                [disabled]="bill.status === 'PAID'"
+                (click)="makePayment(bill.id)"
+              >
+                Pay Now
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+```
+
+**TS: `customer-payment.component.ts`**
+
+```typescript
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-customer-payment',
+  templateUrl: './customer-payment.component.html',
+  styleUrls: ['./customer-payment.component.scss'],
+})
+export class CustomerPaymentComponent {
+  pendingBills = [
+    { id: 1, amount: 120.5, dueDate: '2024-12-25', status: 'PENDING' },
+    { id: 2, amount: 95.0, dueDate: '2024-12-30', status: 'PAID' },
+  ];
+
+  makePayment(billId: number) {
+    const bill = this.pendingBills.find((b) => b.id === billId);
+    if (bill) {
+      bill.status = 'PAID';
+      alert(`Payment successful for Bill ID: ${billId}`);
+    }
+  }
+}
+```
+
+---
+
+### **3. Styling Validation with SCSS**
+
+**File: `styles.scss`**
+
+```scss
+// Add Bootstrap styling first
+@import 'bootstrap/scss/bootstrap';
+
+// Add custom form validation styles
+.form-control.ng-touched.ng-invalid {
+  border-color: #dc3545; // Bootstrap Danger color
+  box-shadow: 0 0 5px rgba(220, 53, 69, 0.5);
+}
+
+.form-control.ng-touched.ng-valid {
+  border-color: #28a745; // Bootstrap Success color
+  box-shadow: 0 0 5px rgba(40, 167, 69, 0.5);
+}
+
+.text-danger {
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+```
+
+---
+
+### **4. Key Features in the Updated Code**
+
+1. **Reactive Forms with Validation**:
+   - Validates each form field with Angular's reactive form features.
+   - Real-time validation feedback using `ng-touched` and `ng-invalid`.
+
+2. **Dynamic Styling**:
+   - Input fields turn red on invalid input and green on valid input using SCSS styles.
+
+3. **Disable Button on Invalid Form**:
+   - The "Generate Bill" button is disabled until the form is valid.
+
+4. **Reusable Table Design**:
+   - Payment table dynamically updates based on customer bill data.
+
+5. **Responsive Design**:
+   - Bootstrap grid ensures the layout is mobile-friendly.
+
+---
+
+This code provides a polished UI with real-time validation and excellent styling to create a professional user experience. Let me know if you need more advanced features or integration with a backend!
