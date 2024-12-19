@@ -1,0 +1,317 @@
+Here is a complete implementation for the functionality where a **user logs in to view their payments and pays their pending bills**. Additionally, it includes payment details for admin to view and manage. The code follows **Angular 19 standards** with professional styling, form validations, and dynamic data handling.
+
+---
+
+### Backend API Endpoints
+Ensure the backend supports these APIs:
+1. **Login API**: `POST /api/users/login`
+2. **Get Bills by User**: `GET /api/bills/user/{userId}`
+3. **Make Payment**: `POST /api/payments`
+
+---
+
+### Frontend Code (Angular 19)
+
+#### File Structure
+```plaintext
+src/app/
+  ├── user-login/
+  │   ├── user-login.component.ts
+  │   ├── user-login.component.html
+  │   ├── user-login.component.css
+  ├── payment/
+  │   ├── payment.component.ts
+  │   ├── payment.component.html
+  │   ├── payment.component.css
+  ├── services/
+  │   ├── user.service.ts
+  │   ├── bill.service.ts
+  │   ├── payment.service.ts
+```
+
+---
+
+### **User Login**
+
+#### **`user-login.component.ts`**
+Handles user login functionality.
+
+```typescript
+import { Component } from '@angular/core';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
+import { UserService } from '../services/user.service';
+
+@Component({
+  standalone: true,
+  selector: 'app-user-login',
+  templateUrl: './user-login.component.html',
+  styleUrls: ['./user-login.component.css'],
+})
+export class UserLoginComponent {
+  loginForm: FormGroup;
+  loginError: string = '';
+
+  constructor(
+    private fb: FormBuilder,
+    private userService: UserService,
+    private router: Router
+  ) {
+    this.loginForm = this.fb.group({
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required, Validators.minLength(6)]],
+    });
+  }
+
+  onSubmit(): void {
+    if (this.loginForm.valid) {
+      this.userService.login(this.loginForm.value).subscribe(
+        (response: any) => {
+          sessionStorage.setItem('userId', response.userId);
+          this.router.navigate(['/payment']); // Redirect to payment page
+        },
+        (error) => {
+          this.loginError = 'Invalid email or password!';
+        }
+      );
+    }
+  }
+}
+```
+
+---
+
+#### **`user-login.component.html`**
+Login form UI with validations and error handling.
+
+```html
+<div class="login-container">
+  <h2>User Login</h2>
+  <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+    <div class="form-group">
+      <label for="email">Email</label>
+      <input
+        type="email"
+        id="email"
+        formControlName="email"
+        class="form-control"
+        placeholder="Enter your email"
+      />
+      <small *ngIf="loginForm.get('email')?.invalid && loginForm.get('email')?.touched">
+        Please enter a valid email.
+      </small>
+    </div>
+
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input
+        type="password"
+        id="password"
+        formControlName="password"
+        class="form-control"
+        placeholder="Enter your password"
+      />
+      <small *ngIf="loginForm.get('password')?.invalid && loginForm.get('password')?.touched">
+        Password must be at least 6 characters long.
+      </small>
+    </div>
+
+    <button type="submit" class="btn btn-primary" [disabled]="loginForm.invalid">Login</button>
+    <div class="error" *ngIf="loginError">{{ loginError }}</div>
+  </form>
+</div>
+```
+
+---
+
+### **Payment Management**
+
+#### **`payment.component.ts`**
+Manages bill viewing and payment.
+
+```typescript
+import { Component, OnInit } from '@angular/core';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { BillService } from '../services/bill.service';
+import { PaymentService } from '../services/payment.service';
+
+@Component({
+  standalone: true,
+  selector: 'app-payment',
+  templateUrl: './payment.component.html',
+  styleUrls: ['./payment.component.css'],
+})
+export class PaymentComponent implements OnInit {
+  bills: any[] = [];
+  paymentForm: FormGroup;
+
+  constructor(
+    private billService: BillService,
+    private paymentService: PaymentService,
+    private fb: FormBuilder
+  ) {
+    this.paymentForm = this.fb.group({
+      billId: ['', [Validators.required]],
+      amount: ['', [Validators.required, Validators.pattern(/^\d+(\.\d{1,2})?$/)]],
+      paymentMethod: ['', [Validators.required]],
+    });
+  }
+
+  ngOnInit(): void {
+    const userId = sessionStorage.getItem('userId');
+    if (userId) {
+      this.billService.getBillsByUserId(userId).subscribe(
+        (data) => {
+          this.bills = data;
+        },
+        (error) => {
+          console.error('Error fetching bills:', error);
+        }
+      );
+    }
+  }
+
+  payBill(): void {
+    if (this.paymentForm.valid) {
+      this.paymentService.makePayment(this.paymentForm.value).subscribe(
+        (response) => {
+          alert('Payment successful!');
+          this.ngOnInit(); // Refresh bills
+        },
+        (error) => {
+          console.error('Error making payment:', error);
+          alert('Failed to process payment. Please try again.');
+        }
+      );
+    }
+  }
+}
+```
+
+---
+
+#### **`payment.component.html`**
+Displays bills and allows payments.
+
+```html
+<div class="payment-container">
+  <h2>My Bills</h2>
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Bill ID</th>
+        <th>Bill Date</th>
+        <th>Due Date</th>
+        <th>Bill Amount</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let bill of bills">
+        <td>{{ bill.billId }}</td>
+        <td>{{ bill.billDate }}</td>
+        <td>{{ bill.dueDate }}</td>
+        <td>{{ bill.billAmount }}</td>
+        <td>{{ bill.status }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Make a Payment</h2>
+  <form [formGroup]="paymentForm" (ngSubmit)="payBill()">
+    <div class="form-group">
+      <label for="billId">Bill ID</label>
+      <select id="billId" formControlName="billId" class="form-control">
+        <option *ngFor="let bill of bills" [value]="bill.billId">{{ bill.billId }}</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="amount">Amount</label>
+      <input
+        type="number"
+        id="amount"
+        formControlName="amount"
+        class="form-control"
+        placeholder="Enter amount"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="paymentMethod">Payment Method</label>
+      <select id="paymentMethod" formControlName="paymentMethod" class="form-control">
+        <option value="credit_card">Credit Card</option>
+        <option value="debit_card">Debit Card</option>
+        <option value="upi">UPI</option>
+      </select>
+    </div>
+
+    <button type="submit" class="btn btn-success" [disabled]="paymentForm.invalid">Pay</button>
+  </form>
+</div>
+```
+
+---
+
+### **Services**
+
+#### **`user.service.ts`**
+Handles user login.
+
+```typescript
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class UserService {
+  private baseUrl = 'http://localhost:8080/api/users';
+
+  constructor(private http: HttpClient) {}
+
+  login(credentials: any) {
+    return this.http.post(`${this.baseUrl}/login`, credentials);
+  }
+}
+```
+
+#### **`bill.service.ts`**
+Fetches bills for a user.
+
+```typescript
+@Injectable({
+  providedIn: 'root',
+})
+export class BillService {
+  private baseUrl = 'http://localhost:8080/api/bills';
+
+  constructor(private http: HttpClient) {}
+
+  getBillsByUserId(userId: string) {
+    return this.http.get(`${this.baseUrl}/user/${userId}`);
+  }
+}
+```
+
+#### **`payment.service.ts`**
+Handles payments.
+
+```typescript
+@Injectable({
+  providedIn: 'root',
+})
+export class PaymentService {
+  private baseUrl = 'http://localhost:8080/api/payments';
+
+  constructor(private http: HttpClient) {}
+
+  makePayment(paymentData: any) {
+    return this.http.post(this.baseUrl, paymentData);
+  }
+}
+```
+
+---
+
+This setup provides a seamless user experience with login, viewing bills, and making payments. Let me know if you need further enhancements!
